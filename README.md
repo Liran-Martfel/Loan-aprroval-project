@@ -1,60 +1,29 @@
-# 🏦 מערכת לחיזוי אישור הלוואה (Loan Approval Prediction System)
+# 🏦 מערכת לחיזוי אישור הלוואה (Loan Approval Prediction)
 
-מערכת למידת מכונה מקצה לקצה (End-to-End) לחיזוי אישור או דחיית בקשת הלוואה בהתבסס על הנתונים הפיננסיים והאישיים של המבקש[cite: 1]. המערכת כוללת עיבוד מוקדם של הנתונים, אימון מודל בסיווג וקטורים תומכים (SVC), שמירת ה-Pipeline לקובץ, חשיפת API REST, וממשק משתמש אינטראקטיבי[cite: 1].
-
----
-
-## 📌 תוכן עניינים
-- [סקירת הפרויקט](#-סקירת-הפרויקט)
-- [ארכיטקטורה ותכונות מרכזיות](#-ארכיטקטורה-ותכונות-מרכזיות)
-- [הדאטה-סט והמודל](#-הדאטה-סט-והמודל)
-- [מבנה הפרויקט](#-מבנה-הפרויקט)
-- [התקנה והרצה מקומית](#-התקנה-והרצה-מקומית)
-- [נקודות קצה - REST API](#-נקודות-קצה---rest-api)
-- [ממשקי המשתמש (UI)](#-ממשקי-המשתמש-ui)
-- [אחסון ופריסה (Deployment)](#-אחסון-ופריסה-deployment)
+מערכת Machine Learning מקצה לקצה לחיזוי אישור/דחיית הלוואה מבוססת מודל **Support Vector Classifier (SVC)**[cite: 1, 2]. 
+המערכת מבוססת על Pipeline של `scikit-learn` הכולל נרמול ב-`StandardScaler` ואימון מודל, ומפרידה לחלוטין בין שלב האימון לבין ה-API וממשק המשתמש בזמן ריצה[cite: 1, 2].
 
 ---
 
-## 🎯 סקירת הפרויקט
-הפרויקט מציג תהליך פיתוח מלא של מערכת חיזוי מבוססת AI[cite: 1]:
-1. **אימון המודל:** ניקוי ועיבוד הנתונים, ואימון מודל `SVC` בתוך `Pipeline` הכולל נרמול ב-`StandardScaler`[cite: 1].
-2. **שמירת המודל:** שמירת ה-Pipeline המאומן לקובץ (`.pkl`) לצורך הפרדה מלאה בין שלב האימון לשלב השימוש בזמן ריצה[cite: 1].
-3. **דף נתוני המודל ו-REST API:** חשיפת מטריקות הביצועים, מטריצת הבלבול (Confusion Matrix), התפלגות Margin, גבול ההחלטה ונקודות הדגימה דרך API דף HTML מעוצב[cite: 1].
-4. **ממשק קליטת נתונים וחיזוי:** אפליקציית Web המאפשרת למשתמש להזין נתונים ולקבל תשובה מיידית בזמן אמת[cite: 1].
+## 📊 ביצועי המודל והנתונים
+- **דאטה-סט:** `Project_DB_loan_approval.csv` (סינון גילאי 18+).
+- **פיצ'רים נבחרים:** הכנסה, סכום הלוואה, ריבית, אחוז מתוך הכנסה, דירוג אשראי והיסטוריית מחדלי הלוואה קודמים (`previous_loan_defaults_on_file`)[cite: 2].
+- **אלגוריתם:** `SVC(kernel='rbf', C=10)` שנבחר באמצעות Cross-Validation[cite: 2].
+- **תוצאות אימון (Test Set):**
+  - **Accuracy:** ~90.44%[cite: 2]
+  - **Confusion Matrix:** 6,649 שליליים נכונים, 1,491 חיוביים נכונים[cite: 2]
+  - **F1-Score:** 0.94 (סיווג 0), 0.78 (סיווג 1)[cite: 2]
 
 ---
 
-## ✨ ארכיטקטורה ותכונות מרכזיות
-- **Scikit-Learn Pipeline:** איגוד שלב הנרמול (`StandardScaler`) והאלגוריתם (`SVC`) לתהליך רציף למניעת זליגת נתונים (Data Leakage)[cite: 1].
-- **שרת REST API:** נבנה באמצעות Flask / FastAPI ומספק endpoints לחיזוי ולנתוני המודל[cite: 1].
-- **דף נתוני מודל (Dashboard):** מציג נתונים אנליטיים על המודל, מפת חשיבות פיצ'רים, מטריצת בלבול ודגימות[cite: 1].
-- **ממשק משתמש אינטראקטיבי:** דף נקי ומעוצב לבדיקת זכאות להלוואה בקליק[cite: 1].
-- **תיעוד ולוגים:** כולל לוגים מפורטים (Logging) והודעות Docstring בקוד[cite: 1].
+## 🛠️ ארכיטקטורה ומבנה הפרויקט
 
----
-
-## 📊 הדאטה-סט והמודל
-
-### הדאטה-סט
-המודל מתאמן על דאטה-סט ציבורי של Kaggle[cite: 1]:
-- **פיצ'רים מרכזיים:**
-  - `ApplicantIncome` – הכנסת המבקש (חודשית)[cite: 1]
-  - `CoapplicantIncome` – הכנסת השותף/בן הזוג[cite: 1]
-  - `LoanAmount` – סכום ההלוואה המבוקש[cite: 1]
-  - `Loan_Amount_Term` – תקופת ההלוואה בחודשים[cite: 1]
-  - `Credit_History` – היסטוריית אשראי (0/1)[cite: 1]
-  - `Married` / `Education` – מצב משפחתי / השכלה[cite: 1]
-- **לייבל (Target):** `Loan_Status` (`Y` / `N`)[cite: 1]
-
-### ארכיטקטורת ה-Pipeline
-```python
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
-
-# הגדרת ה-Pipeline המשולב
-pipeline = Pipeline([
-    ('scaler', StandardScaler()),
-    ('classifier', SVC(kernel='rbf', probability=True, random_state=42))
-])
+```text
+├── Project_DB_loan_approval.csv  # דאטה-סט מקורי[cite: 2]
+├── Full project.pkl               # Pipeline מאומן שמור (StandardScaler + SVC)[cite: 2]
+├── model_training.ipynb           # מחברת אימון המודל וחיפוש פרמטרים[cite: 2]
+├── app.py                         # שרת REST API להרצת תחזיות והצגת דשבורד
+├── templates/
+│   ├── index.html                 # ממשק בדיקת זכאות להלוואה (UI)
+│   └── dashboard.html             # דף נתוני ומטריקות המודל
+└── requirements.txt               # תלויות פייתון
