@@ -1,7 +1,7 @@
 # 🏦 מערכת לחיזוי אישור הלוואה (Loan Approval Prediction)
 
-מערכת Machine Learning מקצה לקצה לחיזוי אישור/דחיית הלוואה מבוססת מודל **Support Vector Classifier (SVC)**[cite: 1, 2]. 
-המערכת מבוססת על Pipeline של `scikit-learn` הכולל נרמול ב-`StandardScaler` ואימון מודל, ומפרידה לחלוטין בין שלב האימון לבין ה-API וממשק המשתמש בזמן ריצה[cite: 1, 2].
+מערכת Machine Learning מקצה לקצה לחיזוי אישור/דחיית הלוואה מבוססת מודל Support Vector Classifier (SVC). 
+המערכת מבוססת על Pipeline של `scikit-learn` הכולל נרמול ב-`StandardScaler` ואימון מודל, ומפרידה לחלוטין בין שלב האימון לבין ה-API וממשק המשתמש בזמן ריצה.
 
 ---
 
