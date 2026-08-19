@@ -16,6 +16,11 @@ import shap
 
 CATEGORICAL_MAPS = {'previous_loan_defaults_on_file': {'No': 0, 'Yes': 1}}
 
+# loan_amnt's real ceiling should scale with the applicant's income rather
+# than sitting at a fixed number - the training data's own $35,000 cap says
+# nothing about what a high earner could reasonably ask for.
+LOAN_TO_INCOME_CAP = 10
+
 
 def load_artifacts(pkl_path='Full project.pkl', report_path='model_report.json',
                     background_path='background_sample.pkl'):
@@ -36,6 +41,15 @@ def validate_application(raw_applicant, report):
     errors = []
     for feature, bounds in report['valid_ranges'].items():
         low, high = bounds
+        if feature == 'loan_amnt':
+            income = raw_applicant.get('person_income')
+            if isinstance(income, (int, float)) and income > 0:
+                high = income * LOAN_TO_INCOME_CAP
+        elif feature == 'loan_percent_income':
+            # Mathematically loan_amnt / person_income, so its ceiling must
+            # match loan_amnt's - otherwise this check silently re-blocks
+            # exactly what the loan_amnt cap above was just relaxed to allow.
+            high = LOAN_TO_INCOME_CAP
         value = raw_applicant.get(feature)
         if value is None:
             errors.append(f"Missing value for '{feature}'")

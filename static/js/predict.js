@@ -44,7 +44,11 @@
     const range = getRange('loan_percent_income');
     const hint = fieldDiv.querySelector('.field-hint');
     if (range) {
-      const [low, high] = range;
+      const low = range[0];
+      // Must match inference.py: ceiling is LOAN_TO_INCOME_CAP (loan_amnt's
+      // own cap), not the static training-data max, since this ratio is
+      // mathematically just loan_amnt / person_income.
+      const high = LOAN_TO_INCOME_CAP;
       const inRange = ratio >= low && ratio <= high;
       fieldDiv.classList.toggle('invalid', !inRange);
       if (hint) {
@@ -55,24 +59,60 @@
     }
   }
 
+  // loan_amnt has no fixed ceiling - it scales with whatever income is
+  // currently entered (up to LOAN_TO_INCOME_CAP x income), matching the
+  // same rule inference.py applies server-side in validate_application().
+  const LOAN_TO_INCOME_CAP = 10;
+
+  function loanAmntDynamicMax() {
+    const income = Number(numberInput('person_income')?.value || 0);
+    return income > 0 ? income * LOAN_TO_INCOME_CAP : null;
+  }
+
+  function updateLoanAmntBounds() {
+    const fieldDiv = document.querySelector('.field[data-field="loan_amnt"]');
+    const input = numberInput('loan_amnt');
+    const hint = fieldDiv?.querySelector('.field-hint');
+    if (!fieldDiv || !input) return;
+
+    const range = getRange('loan_amnt');
+    const dynamicMax = loanAmntDynamicMax();
+    const low = range ? range[0] : 0;
+    const high = dynamicMax !== null ? dynamicMax : (range ? range[1] : Infinity);
+    const value = Number(input.value);
+    const inRange = value >= low && value <= high;
+
+    fieldDiv.classList.toggle('invalid', !inRange);
+    // The model was only ever trained on loans up to the historical dataset
+    // max (range[1]) - allowing more is intentional, but predictions past
+    // that point are extrapolation, worth a heads-up rather than a block.
+    const trainedMax = range ? range[1] : null;
+    if (!inRange && hint) {
+      hint.textContent = `${AppI18n.t('field.loan_amnt_range_hint')} $${low.toLocaleString()} - $${high.toLocaleString()}`;
+    } else if (trainedMax !== null && value > trainedMax && hint) {
+      hint.textContent = `${AppI18n.t('field.loan_amnt_extrapolation_hint')} $${trainedMax.toLocaleString()}.`;
+    } else if (hint) {
+      hint.textContent = '';
+    }
+  }
+
   function wireSteppers() {
     document.querySelectorAll('.field').forEach((fieldDiv) => {
       const input = fieldDiv.querySelector('input[type="number"]');
       if (!input) return;
       const minus = fieldDiv.querySelector('.step-minus');
       const plus = fieldDiv.querySelector('.step-plus');
-      const step = Number(input.step || '1');
+      const step = Number(input.dataset.step || '1');
+      const refresh = () => { validateField(fieldDiv); updateRatioDisplay(); updateLoanAmntBounds(); };
       minus && minus.addEventListener('click', () => {
         input.value = (Number(input.value || 0) - step).toFixed(2).replace(/\.00$/, '');
-        validateField(fieldDiv);
-        updateRatioDisplay();
+        refresh();
       });
       plus && plus.addEventListener('click', () => {
         input.value = (Number(input.value || 0) + step).toFixed(2).replace(/\.00$/, '');
-        validateField(fieldDiv);
-        updateRatioDisplay();
+        refresh();
       });
-      input.addEventListener('change', () => { validateField(fieldDiv); updateRatioDisplay(); });
+      input.addEventListener('change', refresh);
     });
   }
 
@@ -84,7 +124,8 @@
 
   function validateField(fieldDiv) {
     const fieldName = fieldDiv.dataset.field;
-    if (!fieldName || fieldName === 'loan_percent_income') return true; // handled by updateRatioDisplay
+    // loan_percent_income and loan_amnt have their own dynamic (income-relative) checks
+    if (!fieldName || fieldName === 'loan_percent_income' || fieldName === 'loan_amnt') return true;
     const input = fieldDiv.querySelector('input[type="number"]');
     const hint = fieldDiv.querySelector('.field-hint');
     const range = getRange(fieldName);
@@ -110,7 +151,11 @@
       if (!validateField(fieldDiv)) allValid = false;
     });
     updateRatioDisplay();
+    updateLoanAmntBounds();
     if (document.querySelector('.field[data-field="loan_percent_income"]')?.classList.contains('invalid')) {
+      allValid = false;
+    }
+    if (document.querySelector('.field[data-field="loan_amnt"]')?.classList.contains('invalid')) {
       allValid = false;
     }
     return allValid;
