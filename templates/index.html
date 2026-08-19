@@ -82,14 +82,10 @@
             <div class="field-hint"></div>
           </div>
 
-          <div class="field" data-field="loan_percent_income" data-scale="100" data-suffix="%">
-            <label data-i18n="field.loan_percent_income">Loan-to-Income Ratio (%)</label>
-            <div class="stepper">
-              <button type="button" class="step-minus">&minus;</button>
-              <input type="number" name="loan_percent_income" value="20" step="1" min="0">
-              <button type="button" class="step-plus">+</button>
-            </div>
-            <div class="field-hint"></div>
+          <div class="field field-derived" data-field="loan_percent_income">
+            <label data-i18n="field.loan_percent_income">Loan-to-Income Ratio</label>
+            <div class="derived-value" id="ratio-display">--</div>
+            <div class="field-hint" data-i18n="field.loan_percent_income_hint">Calculated automatically from income and loan amount.</div>
           </div>
 
           <div class="field" data-field="credit_score" data-scale="1">

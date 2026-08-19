@@ -16,6 +16,45 @@
     return Number(fieldDiv.dataset.scale || '1');
   }
 
+  function numberInput(name) {
+    return form.querySelector(`input[name="${name}"]`);
+  }
+
+  // loan_percent_income is derived, not entered directly - always
+  // loan_amnt / person_income, so it can never contradict those two fields.
+  function computeRatio() {
+    const income = Number(numberInput('person_income')?.value || 0);
+    const loanAmnt = Number(numberInput('loan_amnt')?.value || 0);
+    if (!income) return null;
+    return loanAmnt / income;
+  }
+
+  function updateRatioDisplay() {
+    const ratio = computeRatio();
+    const display = document.getElementById('ratio-display');
+    const fieldDiv = document.querySelector('.field[data-field="loan_percent_income"]');
+    if (!display || !fieldDiv) return;
+
+    if (ratio === null) {
+      display.textContent = '--';
+      return;
+    }
+    display.textContent = `${(ratio * 100).toFixed(1)}%`;
+
+    const range = getRange('loan_percent_income');
+    const hint = fieldDiv.querySelector('.field-hint');
+    if (range) {
+      const [low, high] = range;
+      const inRange = ratio >= low && ratio <= high;
+      fieldDiv.classList.toggle('invalid', !inRange);
+      if (hint) {
+        hint.textContent = inRange
+          ? AppI18n.t('field.loan_percent_income_hint')
+          : `${AppI18n.t('field.loan_percent_income_hint')} (${(low * 100).toFixed(0)}% - ${(high * 100).toFixed(0)}%)`;
+      }
+    }
+  }
+
   function wireSteppers() {
     document.querySelectorAll('.field').forEach((fieldDiv) => {
       const input = fieldDiv.querySelector('input[type="number"]');
@@ -26,12 +65,14 @@
       minus && minus.addEventListener('click', () => {
         input.value = (Number(input.value || 0) - step).toFixed(2).replace(/\.00$/, '');
         validateField(fieldDiv);
+        updateRatioDisplay();
       });
       plus && plus.addEventListener('click', () => {
         input.value = (Number(input.value || 0) + step).toFixed(2).replace(/\.00$/, '');
         validateField(fieldDiv);
+        updateRatioDisplay();
       });
-      input.addEventListener('change', () => validateField(fieldDiv));
+      input.addEventListener('change', () => { validateField(fieldDiv); updateRatioDisplay(); });
     });
   }
 
@@ -43,7 +84,7 @@
 
   function validateField(fieldDiv) {
     const fieldName = fieldDiv.dataset.field;
-    if (!fieldName) return true;
+    if (!fieldName || fieldName === 'loan_percent_income') return true; // handled by updateRatioDisplay
     const input = fieldDiv.querySelector('input[type="number"]');
     const hint = fieldDiv.querySelector('.field-hint');
     const range = getRange(fieldName);
@@ -68,6 +109,10 @@
     document.querySelectorAll('.field[data-field]').forEach((fieldDiv) => {
       if (!validateField(fieldDiv)) allValid = false;
     });
+    updateRatioDisplay();
+    if (document.querySelector('.field[data-field="loan_percent_income"]')?.classList.contains('invalid')) {
+      allValid = false;
+    }
     return allValid;
   }
 
@@ -75,10 +120,12 @@
     const payload = {};
     document.querySelectorAll('.field[data-field]').forEach((fieldDiv) => {
       const fieldName = fieldDiv.dataset.field;
+      if (fieldName === 'loan_percent_income') return; // filled in below
       const scale = fieldScale(fieldDiv);
       const input = fieldDiv.querySelector('input[type="number"]');
       if (input) payload[fieldName] = Number(input.value) / scale;
     });
+    payload.loan_percent_income = computeRatio() || 0;
     const select = form.querySelector('select[name="previous_loan_defaults_on_file"]');
     payload.previous_loan_defaults_on_file = select.value;
     return payload;
@@ -114,12 +161,16 @@
     whyToggle.classList.remove('hidden');
   }
 
+  let explanationInFlight = false;
+
   whyToggle.addEventListener('click', async () => {
+    if (explanationInFlight) return; // ignore repeat clicks while a request is already loading
     contributionsEl.classList.toggle('hidden');
     if (explanationLoaded || contributionsEl.classList.contains('hidden') || !lastPayload) return;
 
+    explanationInFlight = true;
     contributionsEl.classList.remove('hidden');
-    contributionsEl.innerHTML = '<li>...</li>';
+    contributionsEl.innerHTML = `<li><span class="spinner"></span>${AppI18n.t('result.explaining')}</li>`;
     try {
       const res = await fetch('/api/explain', {
         method: 'POST',
@@ -136,6 +187,8 @@
     } catch (err) {
       console.error(err);
       contributionsEl.innerHTML = `<li>${AppI18n.t('result.error')}</li>`;
+    } finally {
+      explanationInFlight = false;
     }
   });
 

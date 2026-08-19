@@ -200,6 +200,30 @@ html[dir="rtl"] body { font-family: 'Assistant', 'Poppins', sans-serif; }
 .field-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; min-height: 1em; }
 .field.invalid .field-hint { color: var(--danger); }
 
+.derived-value {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  border: 1px dashed var(--glass-border);
+  color: var(--accent-dark);
+  font-weight: 600;
+  font-size: 1rem;
+}
+.field-derived.invalid .derived-value { border-color: var(--danger); color: var(--danger); }
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent-dark);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-inline-end: 8px;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .cta-button {
   width: 100%;
   padding: 15px;
