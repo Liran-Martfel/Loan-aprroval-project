@@ -253,6 +253,8 @@ html[dir="rtl"] body { font-family: 'Assistant', 'Poppins', sans-serif; }
 /* ---------- Form fields ---------- */
 .field { margin-bottom: 16px; }
 .field label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
+.field-label-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+.field-label-row label { margin-bottom: 0; }
 
 .stepper {
   display: flex;
@@ -287,14 +289,11 @@ html[dir="rtl"] body { font-family: 'Assistant', 'Poppins', sans-serif; }
 }
 .stepper button:hover { background: rgba(139, 92, 246, 0.28); }
 
-.currency-symbol {
-  padding: 0 10px;
+.currency-hint {
   color: var(--accent-dark);
   font-weight: 600;
-  border-inline-end: 1px solid var(--glass-border);
-  align-self: stretch;
-  display: flex;
-  align-items: center;
+  font-size: 0.85rem;
+  margin-inline-start: 4px;
 }
 
 .field select {
@@ -522,6 +521,22 @@ table th { color: var(--text-muted); font-weight: 600; }
 .cta-link:hover { background: rgba(99, 102, 241, 0.28); }
 
 .chart-wrap { position: relative; height: 280px; margin-top: 10px; }
+
+.boundary-image {
+  display: block;
+  width: 100%;
+  max-width: 900px;
+  margin: 14px auto 0;
+  border-radius: var(--radius-md);
+}
+.boundary-caveat {
+  margin: 12px auto 0;
+  max-width: 900px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  text-align: center;
+}
 
 .cm-correct { color: var(--success); font-weight: 700; }
 

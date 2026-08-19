@@ -48,9 +48,11 @@
         <form id="predict-form">
 
           <div class="field" data-field="person_income" data-scale="1" data-currency="true">
-            <label data-i18n="field.person_income">Annual Income</label>
+            <div class="field-label-row">
+              <label data-i18n="field.person_income">Annual Income</label>
+              <span class="currency-hint">(<span class="currency-symbol">$</span>)</span>
+            </div>
             <div class="stepper">
-              <span class="currency-symbol">$</span>
               <button type="button" class="step-minus">&minus;</button>
               <input type="number" name="person_income" value="55000" step="any" data-step="1000" min="0">
               <button type="button" class="step-plus">+</button>
@@ -69,9 +71,11 @@
           </div>
 
           <div class="field" data-field="loan_amnt" data-scale="1" data-currency="true">
-            <label data-i18n="field.loan_amnt">Requested Loan Amount</label>
+            <div class="field-label-row">
+              <label data-i18n="field.loan_amnt">Requested Loan Amount</label>
+              <span class="currency-hint">(<span class="currency-symbol">$</span>)</span>
+            </div>
             <div class="stepper">
-              <span class="currency-symbol">$</span>
               <button type="button" class="step-minus">&minus;</button>
               <input type="number" name="loan_amnt" value="10000" step="any" data-step="500" min="0">
               <button type="button" class="step-plus">+</button>
@@ -206,9 +210,10 @@
       </div>
 
       <div class="glass-card">
-        <h2 data-i18n="dashboard.pcaTitle">Applicant Space (PCA Projection)</h2>
-        <p class="subtitle" data-i18n="dashboard.pcaCaption">A 2D projection of real applicants and the model's actual support vectors, reduced from the full 7-feature scaled space.</p>
-        <div class="chart-wrap"><canvas id="pca-chart" dir="ltr"></canvas></div>
+        <h2 data-i18n="dashboard.pcaTitle">SVM Decision Boundary (2D Projection)</h2>
+        <p class="subtitle" data-i18n="dashboard.pcaCaption">A real SVM (same kernel and C as the deployed model) fit on your real applicants, reduced to their top 2 principal components so the decision boundary, margins, and support vectors can actually be seen.</p>
+        <img id="boundary-image" class="boundary-image" alt="SVM decision boundary" src="/static/img/decision_boundary.png?v={{ static_version }}">
+        <p id="boundary-caveat" class="boundary-caveat"></p>
       </div>
 
       <div class="dashboard-grid-2">

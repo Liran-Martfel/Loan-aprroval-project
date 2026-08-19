@@ -129,42 +129,13 @@
     renderTable(document.getElementById('dashboard-report-table'), columns, rows);
   }
 
-  let pcaChart = null;
   let marginChart = null;
 
-  function renderPcaChart(pca) {
-    const ctx = document.getElementById('pca-chart');
-    const deniedPoints = pca.points.filter((p) => p.label === 0).map((p) => ({ x: p.x, y: p.y }));
-    const approvedPoints = pca.points.filter((p) => p.label === 1).map((p) => ({ x: p.x, y: p.y }));
-    const svPoints = pca.support_vectors.map((p) => ({ x: p.x, y: p.y }));
-
-    if (pcaChart) pcaChart.destroy();
-    pcaChart = new Chart(ctx, {
-      type: 'scatter',
-      data: {
-        datasets: [
-          { label: AppI18n.t('result.denied'), data: deniedPoints, backgroundColor: `${COLORS.denied}99`, pointRadius: 4 },
-          { label: AppI18n.t('result.approved'), data: approvedPoints, backgroundColor: `${COLORS.approved}99`, pointRadius: 4 },
-          {
-            label: AppI18n.t('dashboard.supportVectors'),
-            data: svPoints,
-            backgroundColor: 'transparent',
-            borderColor: COLORS.supportVector,
-            borderWidth: 1.5,
-            pointStyle: 'circle',
-            pointRadius: 7,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: { title: { display: true, text: 'PC1' } },
-          y: { title: { display: true, text: 'PC2' } },
-        },
-        plugins: { legend: { position: 'bottom' } },
-      },
+  function renderBoundaryCaveat(boundary) {
+    const el = document.getElementById('boundary-caveat');
+    el.innerHTML = AppI18n.tFormat('dashboard.pcaCaveat', {
+      variance: `<span class="ltr-num">${(boundary.explained_variance_ratio.reduce((a, b) => a + b, 0) * 100).toFixed(0)}%</span>`,
+      accuracy: `<span class="ltr-num">${(boundary.viz_accuracy * 100).toFixed(0)}%</span>`,
     });
   }
 
@@ -202,7 +173,7 @@
     renderFileInfo(dash.model_file);
     renderConfusion(info);
     renderReport(info);
-    renderPcaChart(dash.pca_scatter);
+    renderBoundaryCaveat(dash.decision_boundary);
     renderMarginChart(dash.margin_histogram);
   }
 

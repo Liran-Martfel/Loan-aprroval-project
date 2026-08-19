@@ -9,11 +9,18 @@ instead of being recalculated on every server start.
 """
 import hashlib
 import json
+import os
 
 import joblib
+import matplotlib
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
+from sklearn.svm import SVC
+
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 
 from inference import CATEGORICAL_MAPS
 
@@ -21,6 +28,7 @@ PKL_PATH = 'Full project.pkl'
 CSV_PATH = 'Project_DB_loan_approval.csv'
 REPORT_PATH = 'model_report.json'
 OUT_PATH = 'dashboard_data.json'
+BOUNDARY_IMG_PATH = 'static/img/decision_boundary.png'
 
 pipeline = joblib.load(PKL_PATH)
 with open(REPORT_PATH) as f:
@@ -55,42 +63,75 @@ model_file = {
     'sha256': hashlib.sha256(file_bytes).hexdigest(),
 }
 
-# ---- PCA scatter: a sample of real applicants (scaled, true labels) plus
-# the model's actual support vectors, projected into the same 2D PCA space
-# fit on the sample. This is a genuine dimensionality-reduced view of the
-# real 7-feature space, not a synthetic 2-feature toy boundary. ----
+# ---- Decision boundary visualization: a real, balanced sample of real
+# applicants (scaled, true labels), projected to 2D via PCA fit on that
+# sample. A second SVC - same kernel and C as the deployed model - is
+# trained directly on those 2 components so an actual decision surface,
+# margins, and support vectors can be drawn. This is a genuine 2D SVM fit
+# on real data (a standard way to visualize a high-dimensional SVM), not a
+# synthetic toy example - it's just necessarily a simplification, since the
+# real deployed model decides using all 7 features, not 2. ----
 df = pd.read_csv(CSV_PATH)
 df['previous_loan_defaults_on_file'] = df['previous_loan_defaults_on_file'].map(
     CATEGORICAL_MAPS['previous_loan_defaults_on_file']
 )
 
 rng = np.random.RandomState(42)
-sample_n = 350
-sample_idx = rng.choice(len(df), size=sample_n, replace=False)
-sample_df = df.iloc[sample_idx]
+per_class_n = 200
+balanced_idx = np.concatenate([
+    rng.choice(df.index[df['loan_status'] == 0], size=per_class_n, replace=False),
+    rng.choice(df.index[df['loan_status'] == 1], size=per_class_n, replace=False),
+])
+sample_df = df.loc[balanced_idx]
 sample_x = sample_df[features].to_numpy(dtype=float)
 sample_labels = sample_df['loan_status'].to_numpy()
 sample_scaled = scaler.transform(sample_x)
 
-sv_scaled = svc.support_vectors_
-sv_sample_idx = rng.choice(len(sv_scaled), size=min(150, len(sv_scaled)), replace=False)
-sv_sample = sv_scaled[sv_sample_idx]
-
 pca = PCA(n_components=2, random_state=42)
-pca.fit(sample_scaled)
-sample_2d = pca.transform(sample_scaled)
-sv_2d = pca.transform(sv_sample)
+sample_2d = pca.fit_transform(sample_scaled)
 
-pca_scatter = {
+viz_svc = SVC(kernel=svc.kernel, C=svc.C, gamma=svc.gamma)
+viz_svc.fit(sample_2d, sample_labels)
+
+x_min, x_max = sample_2d[:, 0].min() - 1, sample_2d[:, 0].max() + 1
+y_min, y_max = sample_2d[:, 1].min() - 1, sample_2d[:, 1].max() + 1
+xx, yy = np.meshgrid(np.linspace(x_min, x_max, 400), np.linspace(y_min, y_max, 400))
+zz = viz_svc.decision_function(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+
+fig, ax = plt.subplots(figsize=(9, 6), dpi=150)
+fig.patch.set_alpha(0)
+ax.set_facecolor('#faf9fc')
+
+region_cmap = ListedColormap(['#fbdfe2', '#d7f0e0'])
+ax.contourf(xx, yy, zz, levels=[zz.min(), 0, zz.max()], cmap=region_cmap, alpha=0.75)
+ax.contour(xx, yy, zz, levels=[-1, 0, 1], colors=['#d64550', '#3730a3', '#1f9d55'],
+           linestyles=['dashed', 'solid', 'dashed'], linewidths=[1.3, 2, 1.3])
+
+denied_mask = sample_labels == 0
+ax.scatter(sample_2d[denied_mask, 0], sample_2d[denied_mask, 1], c='#d64550', s=28,
+           alpha=0.85, edgecolors='white', linewidths=0.4, label='Loan Not Approved')
+ax.scatter(sample_2d[~denied_mask, 0], sample_2d[~denied_mask, 1], c='#1f9d55', s=28,
+           alpha=0.85, edgecolors='white', linewidths=0.4, label='Loan Approved')
+ax.scatter(sample_2d[viz_svc.support_, 0], sample_2d[viz_svc.support_, 1],
+           facecolors='none', edgecolors='#d8ae5e', linewidths=1.6, s=110, label='Support Vectors')
+
+ax.set_xlabel('Principal Component 1', color='#2e2540')
+ax.set_ylabel('Principal Component 2', color='#2e2540')
+ax.tick_params(colors='#6b6480')
+for spine in ax.spines.values():
+    spine.set_color('#c9c2dd')
+legend = ax.legend(loc='upper right', frameon=True, framealpha=0.85, fontsize=9)
+legend.get_frame().set_facecolor('#ffffff')
+legend.get_frame().set_edgecolor('#c9c2dd')
+fig.tight_layout()
+
+os.makedirs(os.path.dirname(BOUNDARY_IMG_PATH), exist_ok=True)
+fig.savefig(BOUNDARY_IMG_PATH, transparent=True)
+plt.close(fig)
+
+decision_boundary = {
     'explained_variance_ratio': [float(v) for v in pca.explained_variance_ratio_],
-    'points': [
-        {'x': round(float(x), 3), 'y': round(float(y), 3), 'label': int(lbl)}
-        for (x, y), lbl in zip(sample_2d, sample_labels)
-    ],
-    'support_vectors': [
-        {'x': round(float(x), 3), 'y': round(float(y), 3)}
-        for x, y in sv_2d
-    ],
+    'viz_accuracy': float(viz_svc.score(sample_2d, sample_labels)),
 }
 
 # ---- Margin distribution histogram (from the already-computed raw margins
@@ -106,13 +147,14 @@ margin_histogram = {
 dashboard_data = {
     'model_details': model_details,
     'model_file': model_file,
-    'pca_scatter': pca_scatter,
+    'decision_boundary': decision_boundary,
     'margin_histogram': margin_histogram,
 }
 
 with open(OUT_PATH, 'w') as f:
     json.dump(dashboard_data, f)
 
-print(f'Wrote {OUT_PATH}')
+print(f'Wrote {OUT_PATH} and {BOUNDARY_IMG_PATH}')
 print('support vectors:', model_details['support_vector_count'])
-print('pca explained variance ratio:', pca_scatter['explained_variance_ratio'])
+print('pca explained variance ratio:', decision_boundary['explained_variance_ratio'])
+print('2D visualization SVC accuracy on its own sample:', decision_boundary['viz_accuracy'])
