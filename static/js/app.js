@@ -27,6 +27,8 @@ async function loadModelInfo() {
     const res = await fetch('/api/model-info');
     if (!res.ok) throw new Error(`status ${res.status}`);
     window.AppState.modelInfo = await res.json();
+    const badge = document.getElementById('app-version-badge');
+    if (window.AppState.modelInfo.app_version) badge.textContent = `v${window.AppState.modelInfo.app_version}`;
   } catch (err) {
     console.error('Failed to load model info', err);
   }

@@ -18,7 +18,10 @@
   </button>
 </div>
 
-<h1 class="page-title" data-i18n="page.title">Loan Approval Prediction</h1>
+<div class="page-title-row">
+  <h1 class="page-title" data-i18n="page.title">Loan Approval Prediction</h1>
+  <span id="app-version-badge" class="version-badge"></span>
+</div>
 
 <div class="app-shell">
   <nav class="sidebar">
@@ -33,6 +36,10 @@
     <button class="nav-item" data-window="dashboard">
       <span class="nav-icon-badge"><span class="nav-icon">&#128202;</span></span>
       <span data-i18n="nav.dashboard">Model Dashboard</span>
+    </button>
+    <button class="nav-item" data-window="logs">
+      <span class="nav-icon-badge"><span class="nav-icon">&#128220;</span></span>
+      <span data-i18n="nav.logs">Logs</span>
     </button>
   </nav>
 
@@ -234,6 +241,31 @@
       </div>
     </section>
 
+    <!-- ===================== Logs window ===================== -->
+    <section id="window-logs" class="window">
+      <div id="logs-gate" class="glass-card logs-gate">
+        <h2 data-i18n="logs.gateTitle">Admin Access</h2>
+        <p class="subtitle" data-i18n="logs.gateSubtitle">Enter the admin key to view request and error history.</p>
+        <div class="logs-gate-row">
+          <input type="password" id="logs-key-input" data-i18n-placeholder="logs.keyPlaceholder" placeholder="Admin key">
+          <button type="button" id="logs-unlock-btn" class="cta-link" data-i18n="logs.unlock">Unlock</button>
+        </div>
+        <p id="logs-gate-error" class="logs-gate-error hidden" data-i18n="logs.wrongKey">Incorrect key.</p>
+      </div>
+
+      <div id="logs-content" class="glass-card hidden">
+        <div class="logs-header">
+          <h2 data-i18n="logs.title">Request &amp; Error History</h2>
+          <div>
+            <button type="button" id="logs-refresh-btn" class="cta-link" data-i18n="logs.refresh">Refresh</button>
+            <button type="button" id="logs-lock-btn" class="cta-link" data-i18n="logs.lock">Lock</button>
+          </div>
+        </div>
+        <p class="subtitle" data-i18n="logs.subtitle">The most recent 300 requests and errors handled by the live server, stored permanently so they survive restarts and redeploys.</p>
+        <div class="table-wrap"><table id="logs-table" dir="ltr"></table></div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -242,5 +274,6 @@
 <script src="/static/js/predict.js?v={{ static_version }}"></script>
 <script src="/static/js/model_data.js?v={{ static_version }}"></script>
 <script src="/static/js/dashboard.js?v={{ static_version }}"></script>
+<script src="/static/js/logs.js?v={{ static_version }}"></script>
 </body>
 </html>

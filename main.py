@@ -8,18 +8,27 @@ file only wires it up to HTTP.
 """
 import json
 import logging
+import os
 import sys
 import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Header, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+import request_log
 from inference import encode_application, evaluate_application, explain_prediction, load_artifacts, validate_application
+
+ADMIN_LOG_KEY = os.environ.get("ADMIN_LOG_KEY")
+
+# Bumped by hand whenever a change worth tracking goes live - shown in the
+# site's header and in the README, so it's obvious which version is
+# actually deployed at any given time.
+APP_VERSION = "1.0.0"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,6 +58,7 @@ async def lifespan(app: FastAPI):
     app.state.background = background
     with open("dashboard_data.json") as f:
         app.state.dashboard_data = json.load(f)
+    request_log.init_db()
     logger.info(
         "Model loaded: %s (deployment_accuracy=%.4f, trained_at=%s)",
         report["model_name"], report["deployment_accuracy"], report["timestamp"],
@@ -80,13 +90,33 @@ class ApplicantInput(BaseModel):
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.time()
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        duration_ms = (time.time() - start) * 1000
+        logger.exception("Unhandled error for %s %s", request.method, request.url.path)
+        request_log.log_request(request.method, request.url.path, 500, duration_ms, str(exc))
+        raise
     duration_ms = (time.time() - start) * 1000
+    error_message = getattr(request.state, "error_message", None)
     logger.info(
         "%s %s -> %s (%.1fms)",
         request.method, request.url.path, response.status_code, duration_ms,
     )
+    request_log.log_request(request.method, request.url.path, response.status_code, duration_ms, error_message)
     return response
+
+
+@app.get("/api/logs")
+def get_logs(x_admin_key: str = Header(default=None)):
+    """
+    Recent request/error history for the in-app Logs page. Requires the
+    admin key (set via the ADMIN_LOG_KEY env var) as an X-Admin-Key header -
+    without it, or if it's wrong, this refuses to return anything.
+    """
+    if not ADMIN_LOG_KEY or x_admin_key != ADMIN_LOG_KEY:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    return {"events": request_log.get_recent()}
 
 
 @app.get("/")
@@ -105,6 +135,7 @@ def get_model_summary():
     report = app.state.report
     summary = {key: report[key] for key in MODEL_INFO_KEYS}
     summary["margins_summary"] = {k: v for k, v in report["margins"].items() if k != "values"}
+    summary["app_version"] = APP_VERSION
     return summary
 
 
@@ -133,7 +164,7 @@ def download_model_file():
 
 
 @app.post("/api/predict")
-def predict(applicant: ApplicantInput):
+def predict(applicant: ApplicantInput, request: Request):
     """
     Runs one applicant's data through the trained pipeline and returns
     whether the loan would be approved and a confidence score. Deliberately
@@ -147,8 +178,9 @@ def predict(applicant: ApplicantInput):
             app.state.pipeline, applicant.model_dump(), app.state.background,
             app.state.report, explain=False,
         )
-    except Exception:
+    except Exception as exc:
         logger.exception("Prediction failed for input: %s", applicant.model_dump())
+        request.state.error_message = str(exc)
         return JSONResponse(
             status_code=500,
             content={"valid": False, "errors": ["Internal server error"]},
@@ -156,7 +188,7 @@ def predict(applicant: ApplicantInput):
 
 
 @app.post("/api/explain")
-def explain(applicant: ApplicantInput):
+def explain(applicant: ApplicantInput, request: Request):
     """
     Computes the (slow) SHAP explanation for one applicant, fetched lazily
     by the frontend only when the user opens the "Why?" panel.
@@ -169,8 +201,9 @@ def explain(applicant: ApplicantInput):
         x_row = encode_application(raw_applicant, app.state.report["features"])
         contributions = explain_prediction(app.state.pipeline, x_row, app.state.background)
         return {"valid": True, "feature_contributions": contributions}
-    except Exception:
+    except Exception as exc:
         logger.exception("Explanation failed for input: %s", raw_applicant)
+        request.state.error_message = str(exc)
         return JSONResponse(
             status_code=500,
             content={"valid": False, "errors": ["Internal server error"]},

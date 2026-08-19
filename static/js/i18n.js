@@ -12,6 +12,7 @@ const TRANSLATIONS = {
     'nav.eligibility': 'Check Eligibility',
     'nav.modelData': 'Model Data',
     'nav.dashboard': 'Model Dashboard',
+    'nav.logs': 'Logs',
     'lookWithin.title': 'The Look From Within',
     'lookWithin.input': 'Your Data',
     'lookWithin.kernel': 'Kernel Space',
@@ -84,6 +85,22 @@ const TRANSLATIONS = {
     'dashboard.pcaCaveat': "These 2 components capture {variance} of the original 7-feature variance, so this simplified 2D model reaches {accuracy} accuracy on its own - lower than the real deployed model's, which uses all 7 features. This chart is for visualizing how an SVM decision boundary works, not the exact boundary the live model uses.",
     'dashboard.marginTitle': 'Margin Distribution',
     'dashboard.marginCaption': 'Negative margins were denied, positive margins were approved.',
+    'logs.gateTitle': 'Admin Access',
+    'logs.gateSubtitle': 'Enter the admin key to view request and error history.',
+    'logs.keyPlaceholder': 'Admin key',
+    'logs.unlock': 'Unlock',
+    'logs.wrongKey': 'Incorrect key.',
+    'logs.title': 'Request & Error History',
+    'logs.refresh': 'Refresh',
+    'logs.lock': 'Lock',
+    'logs.subtitle': 'The most recent 300 requests and errors handled by the live server, stored permanently so they survive restarts and redeploys.',
+    'logs.empty': 'No requests logged yet.',
+    'logs.colTime': 'Time',
+    'logs.colMethod': 'Method',
+    'logs.colPath': 'Path',
+    'logs.colStatus': 'Status',
+    'logs.colDuration': 'Duration',
+    'logs.colError': 'Error',
   },
   he: {
     dir: 'rtl',
@@ -92,6 +109,7 @@ const TRANSLATIONS = {
     'nav.eligibility': 'בדיקת זכאות',
     'nav.modelData': 'נתוני המודל',
     'nav.dashboard': 'לוח בקרת המודל',
+    'nav.logs': 'יומן פעילות',
     'lookWithin.title': 'המבט מבפנים',
     'lookWithin.input': 'הנתונים שלך',
     'lookWithin.kernel': 'מרחב הקרנל',
@@ -164,6 +182,22 @@ const TRANSLATIONS = {
     'dashboard.pcaCaveat': 'שני הרכיבים הללו לוכדים {variance} מהשונות המקורית של 7 המאפיינים, ולכן המודל הדו-ממדי המפושט הזה מגיע לדיוק של {accuracy} בלבד - נמוך מהמודל האמיתי הפרוס, שמשתמש בכל 7 המאפיינים. התרשים הזה נועד להמחיש כיצד עובד גבול ההחלטה של SVM, ולא מציג את הגבול המדויק שהמודל החי משתמש בו.',
     'dashboard.marginTitle': 'התפלגות השוליים',
     'dashboard.marginCaption': 'שוליים שליליים נדחו, שוליים חיוביים אושרו.',
+    'logs.gateTitle': 'גישת ניהול',
+    'logs.gateSubtitle': 'הזן/י את מפתח הניהול כדי לצפות בהיסטוריית הבקשות והשגיאות.',
+    'logs.keyPlaceholder': 'מפתח ניהול',
+    'logs.unlock': 'פתיחה',
+    'logs.wrongKey': 'מפתח שגוי.',
+    'logs.title': 'היסטוריית בקשות ושגיאות',
+    'logs.refresh': 'רענון',
+    'logs.lock': 'נעילה',
+    'logs.subtitle': '300 הבקשות והשגיאות האחרונות שהשרת החי טיפל בהן, נשמרות לצמיתות כך שהן שורדות הפעלות מחדש ופריסות מחדש.',
+    'logs.empty': 'עדיין לא נרשמו בקשות.',
+    'logs.colTime': 'זמן',
+    'logs.colMethod': 'שיטה',
+    'logs.colPath': 'נתיב',
+    'logs.colStatus': 'סטטוס',
+    'logs.colDuration': 'משך',
+    'logs.colError': 'שגיאה',
   },
 };
 
@@ -186,6 +220,9 @@ const AppI18n = {
     document.documentElement.dir = dict.dir;
     document.querySelectorAll('[data-i18n]').forEach((el) => {
       el.textContent = this.t(el.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+      el.placeholder = this.t(el.getAttribute('data-i18n-placeholder'));
     });
     document.querySelectorAll('[data-currency]').forEach((el) => {
       const symbolSpot = el.querySelector('.currency-symbol');

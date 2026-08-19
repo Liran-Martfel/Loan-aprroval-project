@@ -64,9 +64,16 @@ html[dir="rtl"] body { font-family: 'Assistant', 'Poppins', sans-serif; }
   padding: 18px 28px 0;
 }
 
-.page-title {
-  text-align: center;
+.page-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   margin: 4px 0 22px;
+}
+
+.page-title {
+  margin: 0;
   font-weight: 700;
   font-size: 2rem;
   letter-spacing: 0.01em;
@@ -75,6 +82,19 @@ html[dir="rtl"] body { font-family: 'Assistant', 'Poppins', sans-serif; }
   background-clip: text;
   color: transparent;
 }
+
+.version-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 0.75rem;
+  font-weight: 700;
+  align-self: center;
+  margin-top: 6px;
+}
+.version-badge.hidden { display: none; }
 
 .currency-toggle {
   width: 42px;
@@ -539,6 +559,29 @@ table th { color: var(--text-muted); font-weight: 600; }
 }
 
 .cm-correct { color: var(--success); font-weight: 700; }
+
+/* ---------- Logs window ---------- */
+.logs-gate { max-width: 460px; margin: 40px auto; text-align: center; }
+.logs-gate-row { display: flex; gap: 10px; margin-top: 16px; }
+.logs-gate-row input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--input-bg);
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--text-main);
+}
+.logs-gate-error { color: var(--danger); font-size: 0.85rem; margin-top: 12px; }
+
+.logs-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.logs-header h2 { margin: 0; }
+
+.log-status-ok { color: var(--success); font-weight: 700; }
+.log-status-warn { color: var(--gold); font-weight: 700; }
+.log-status-error { color: var(--danger); font-weight: 700; }
+.log-error-cell { color: var(--danger); font-size: 0.78rem; white-space: normal; max-width: 320px; }
 
 @media (max-width: 960px) {
   .dashboard-grid-3 { grid-template-columns: 1fr; }
