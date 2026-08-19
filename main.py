@@ -58,6 +58,11 @@ app = FastAPI(title="Loan Approval API", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# Appended to static asset URLs as ?v=... so browsers fetch fresh JS/CSS
+# after every deploy instead of serving a stale cached copy under the same
+# unchanged /static/... URL.
+STATIC_VERSION = str(int(time.time()))
+
 
 class ApplicantInput(BaseModel):
     person_income: float
@@ -83,7 +88,7 @@ async def log_requests(request: Request, call_next):
 
 @app.get("/")
 def index(request: Request):
-    return templates.TemplateResponse(request, "index.html")
+    return templates.TemplateResponse(request, "index.html", {"static_version": STATIC_VERSION})
 
 
 @app.get("/api/model-info")
