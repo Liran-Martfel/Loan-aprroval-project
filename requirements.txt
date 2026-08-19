@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+jinja2
+pydantic
+joblib
+scikit-learn
+shap
+pandas
+numpy

@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+.claude/
+_server_log.txt

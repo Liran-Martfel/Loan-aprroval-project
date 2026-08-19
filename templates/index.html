@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en" id="html-root">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loan Approval Prediction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Assistant:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <button id="currency-toggle" class="currency-toggle" type="button" title="Switch language / currency">
+    <span class="ct-symbol">$</span>
+  </button>
+  <div class="site-name">Loan Approval Prediction</div>
+</div>
+
+<div class="app-shell">
+  <nav class="sidebar">
+    <button class="nav-item active" data-window="eligibility">
+      <span class="nav-icon">&#9998;</span>
+      <span data-i18n="nav.eligibility">Check Eligibility</span>
+    </button>
+    <button class="nav-item" data-window="model-data">
+      <span class="nav-icon">&#9881;</span>
+      <span data-i18n="nav.modelData">Model Data</span>
+    </button>
+  </nav>
+
+  <main class="content">
+
+    <!-- ===================== Eligibility window ===================== -->
+    <section id="window-eligibility" class="window active">
+      <div class="glass-card form-card">
+        <h1 data-i18n="form.title">Loan Application Details</h1>
+        <p class="subtitle" data-i18n="form.subtitle">Fill in your details to check your eligibility.</p>
+
+        <form id="predict-form">
+
+          <div class="field" data-field="person_income" data-scale="1" data-currency="true">
+            <label data-i18n="field.person_income">Annual Income</label>
+            <div class="stepper">
+              <span class="currency-symbol">$</span>
+              <button type="button" class="step-minus">&minus;</button>
+              <input type="number" name="person_income" value="55000" step="1000" min="0">
+              <button type="button" class="step-plus">+</button>
+            </div>
+            <div class="field-hint"></div>
+          </div>
+
+          <div class="field" data-field="person_emp_exp" data-scale="1">
+            <label data-i18n="field.person_emp_exp">Employment Experience (years)</label>
+            <div class="stepper">
+              <button type="button" class="step-minus">&minus;</button>
+              <input type="number" name="person_emp_exp" value="5" step="1" min="0">
+              <button type="button" class="step-plus">+</button>
+            </div>
+            <div class="field-hint"></div>
+          </div>
+
+          <div class="field" data-field="loan_amnt" data-scale="1" data-currency="true">
+            <label data-i18n="field.loan_amnt">Requested Loan Amount</label>
+            <div class="stepper">
+              <span class="currency-symbol">$</span>
+              <button type="button" class="step-minus">&minus;</button>
+              <input type="number" name="loan_amnt" value="10000" step="500" min="0">
+              <button type="button" class="step-plus">+</button>
+            </div>
+            <div class="field-hint"></div>
+          </div>
+
+          <div class="field" data-field="loan_int_rate" data-scale="1">
+            <label data-i18n="field.loan_int_rate">Interest Rate (%)</label>
+            <div class="stepper">
+              <button type="button" class="step-minus">&minus;</button>
+              <input type="number" name="loan_int_rate" value="12" step="0.1" min="0">
+              <button type="button" class="step-plus">+</button>
+            </div>
+            <div class="field-hint"></div>
+          </div>
+
+          <div class="field" data-field="loan_percent_income" data-scale="100" data-suffix="%">
+            <label data-i18n="field.loan_percent_income">Loan-to-Income Ratio (%)</label>
+            <div class="stepper">
+              <button type="button" class="step-minus">&minus;</button>
+              <input type="number" name="loan_percent_income" value="20" step="1" min="0">
+              <button type="button" class="step-plus">+</button>
+            </div>
+            <div class="field-hint"></div>
+          </div>
+
+          <div class="field" data-field="credit_score" data-scale="1">
+            <label data-i18n="field.credit_score">Credit Score</label>
+            <div class="stepper">
+              <button type="button" class="step-minus">&minus;</button>
+              <input type="number" name="credit_score" value="680" step="5" min="300" max="850">
+              <button type="button" class="step-plus">+</button>
+            </div>
+            <div class="field-hint"></div>
+          </div>
+
+          <div class="field">
+            <label data-i18n="field.previous_loan_defaults_on_file">Previous Loan Defaults</label>
+            <select name="previous_loan_defaults_on_file">
+              <option value="No" data-i18n="option.no">No</option>
+              <option value="Yes" data-i18n="option.yes">Yes</option>
+            </select>
+          </div>
+
+          <button type="submit" class="cta-button" data-i18n="form.submit">Check Loan Eligibility</button>
+        </form>
+
+        <div id="result-panel" class="result-panel hidden">
+          <div id="result-headline" class="result-headline"></div>
+          <div id="result-confidence" class="result-confidence"></div>
+          <button type="button" id="why-toggle" class="why-toggle hidden" data-i18n="result.why">Why?</button>
+          <ul id="result-contributions" class="contributions hidden"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Model Data window ===================== -->
+    <section id="window-model-data" class="window">
+      <div class="stat-row" id="stat-cards"></div>
+
+      <div class="glass-card">
+        <h2 data-i18n="model.featuresTitle">Features</h2>
+        <div id="feature-list" class="feature-list"></div>
+      </div>
+
+      <div class="glass-card">
+        <h2 data-i18n="model.sampleTitle">Sample Training Data</h2>
+        <div class="table-wrap"><table id="sample-table"></table></div>
+      </div>
+
+      <div class="glass-card">
+        <button type="button" id="advanced-toggle" class="advanced-toggle" data-i18n="model.advancedTitle">Advanced Metrics</button>
+        <div id="advanced-content" class="advanced-content hidden">
+          <h3 data-i18n="model.confusionTitle">Confusion Matrix</h3>
+          <div class="table-wrap"><table id="confusion-table"></table></div>
+          <h3 data-i18n="model.reportTitle">Classification Report</h3>
+          <div class="table-wrap"><table id="report-table"></table></div>
+          <h3 data-i18n="model.marginsTitle">Decision Margins (summary)</h3>
+          <div class="table-wrap"><table id="margins-table"></table></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="/static/js/i18n.js"></script>
+<script src="/static/js/app.js"></script>
+<script src="/static/js/predict.js"></script>
+<script src="/static/js/model_data.js"></script>
+</body>
+</html>
