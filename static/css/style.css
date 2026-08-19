@@ -1,13 +1,13 @@
 :root {
   --glass-bg: rgba(255, 255, 255, 0.28);
   --glass-border: rgba(255, 255, 255, 0.75);
-  --glass-shadow: 0 12px 40px rgba(91, 33, 182, 0.18);
-  --accent: #8b5cf6;
-  --accent-dark: #5b21b6;
-  --accent-soft: rgba(139, 92, 246, 0.16);
+  --glass-shadow: 0 12px 40px rgba(37, 99, 235, 0.18);
+  --accent: #6366f1;
+  --accent-dark: #3730a3;
+  --accent-soft: rgba(99, 102, 241, 0.16);
   --gold: #d8ae5e;
-  --pink: #ec4899;
-  --blue: #4f46e5;
+  --pink: #7c3aed;
+  --blue: #0ea5e9;
   --text-main: #2e2540;
   --text-muted: #6b6480;
   --danger: #d64550;
@@ -40,11 +40,11 @@ body::before {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(55% 50% at 18% 20%, rgba(236, 72, 153, 0.6), transparent 72%),
+    radial-gradient(55% 50% at 18% 20%, rgba(14, 165, 233, 0.55), transparent 72%),
     radial-gradient(58% 52% at 82% 15%, rgba(79, 70, 229, 0.6), transparent 72%),
-    radial-gradient(60% 55% at 25% 88%, rgba(139, 92, 246, 0.55), transparent 72%),
+    radial-gradient(60% 55% at 25% 88%, rgba(99, 102, 241, 0.5), transparent 72%),
     radial-gradient(55% 50% at 80% 85%, rgba(216, 174, 94, 0.5), transparent 72%),
-    radial-gradient(50% 45% at 50% 50%, rgba(139, 92, 246, 0.28), transparent 75%),
+    radial-gradient(50% 45% at 50% 50%, rgba(124, 58, 237, 0.28), transparent 75%),
     linear-gradient(160deg, #f5f1fb, #ffffff 60%);
   filter: blur(50px);
   animation: drift 22s ease-in-out infinite alternate;
@@ -440,6 +440,95 @@ table th { color: var(--text-muted); font-weight: 600; }
   padding: 0;
 }
 .advanced-content { margin-top: 14px; }
+
+/* ---------- Model Dashboard window ---------- */
+.dashboard-hero {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.dashboard-hero-shape {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: linear-gradient(135deg, var(--blue), var(--accent), var(--pink));
+  background-size: 200% 200%;
+  animation: kernel-pulse 3.5s ease-in-out infinite;
+  box-shadow: 0 0 24px rgba(99, 102, 241, 0.5);
+}
+.dashboard-hero-text h2 { margin-bottom: 6px; }
+.dashboard-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.dashboard-hero-text .subtitle { margin: 10px 0 0; }
+
+.dashboard-grid-3, .dashboard-grid-2 {
+  display: grid;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.dashboard-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.dashboard-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.dashboard-grid-3 .glass-card, .dashboard-grid-2 .glass-card { margin-bottom: 0; }
+
+.detail-list { display: flex; flex-direction: column; gap: 4px; }
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--glass-border);
+  font-size: 0.85rem;
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-label { color: var(--text-muted); }
+.detail-value { font-weight: 600; }
+
+.api-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.api-row { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; flex-wrap: wrap; }
+.api-method {
+  flex-shrink: 0;
+  width: 46px;
+  text-align: center;
+  padding: 2px 0;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: #fff;
+}
+.api-method-get { background: var(--blue); }
+.api-method-post { background: var(--gold); }
+.api-path { font-family: 'Courier New', monospace; color: var(--accent-dark); }
+.api-desc { color: var(--text-muted); }
+
+.cta-link {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+.cta-link:hover { background: rgba(99, 102, 241, 0.28); }
+
+.chart-wrap { position: relative; height: 280px; margin-top: 10px; }
+
+.cm-correct { color: var(--success); font-weight: 700; }
+
+@media (max-width: 960px) {
+  .dashboard-grid-3 { grid-template-columns: 1fr; }
+  .dashboard-grid-2 { grid-template-columns: 1fr; }
+}
 
 @media (max-width: 720px) {
   .app-shell { flex-direction: column; }

@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Assistant:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/style.css?v={{ static_version }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -28,6 +29,10 @@
     <button class="nav-item" data-window="model-data">
       <span class="nav-icon-badge"><span class="nav-icon">&#9881;</span></span>
       <span data-i18n="nav.modelData">Model Data</span>
+    </button>
+    <button class="nav-item" data-window="dashboard">
+      <span class="nav-icon-badge"><span class="nav-icon">&#128202;</span></span>
+      <span data-i18n="nav.dashboard">Model Dashboard</span>
     </button>
   </nav>
 
@@ -170,6 +175,60 @@
       </div>
     </section>
 
+    <!-- ===================== Model Dashboard window ===================== -->
+    <section id="window-dashboard" class="window">
+      <div class="glass-card dashboard-hero">
+        <div class="dashboard-hero-shape"></div>
+        <div class="dashboard-hero-text">
+          <h2 data-i18n="dashboard.title">Loan Approval Prediction Model</h2>
+          <span id="dashboard-kernel-badge" class="dashboard-badge"></span>
+          <p class="subtitle" data-i18n="dashboard.subtitle">This model predicts whether a loan application will be approved, based on 7 applicant features.</p>
+        </div>
+      </div>
+
+      <div class="stat-row" id="dashboard-stat-cards"></div>
+
+      <div class="dashboard-grid-3">
+        <div class="glass-card">
+          <h2 data-i18n="dashboard.detailsTitle">Model Details</h2>
+          <div id="dashboard-details-list" class="detail-list"></div>
+        </div>
+        <div class="glass-card">
+          <h2 data-i18n="dashboard.apiTitle">Model API Endpoints</h2>
+          <div id="dashboard-api-list" class="api-list"></div>
+          <a href="/docs" target="_blank" rel="noopener" class="cta-link" data-i18n="dashboard.viewDocs">View API Documentation</a>
+        </div>
+        <div class="glass-card">
+          <h2 data-i18n="dashboard.fileTitle">Model File</h2>
+          <div id="dashboard-file-info" class="detail-list"></div>
+          <a href="/api/model-file" class="cta-link" data-i18n="dashboard.download">Download Model File</a>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <h2 data-i18n="dashboard.pcaTitle">Applicant Space (PCA Projection)</h2>
+        <p class="subtitle" data-i18n="dashboard.pcaCaption">A 2D projection of real applicants and the model's actual support vectors, reduced from the full 7-feature scaled space.</p>
+        <div class="chart-wrap"><canvas id="pca-chart" dir="ltr"></canvas></div>
+      </div>
+
+      <div class="dashboard-grid-2">
+        <div class="glass-card">
+          <h2 data-i18n="model.confusionTitle">Confusion Matrix</h2>
+          <div class="table-wrap"><table id="dashboard-confusion-table"></table></div>
+        </div>
+        <div class="glass-card">
+          <h2 data-i18n="dashboard.marginTitle">Margin Distribution</h2>
+          <p class="subtitle" data-i18n="dashboard.marginCaption">Negative margins were denied, positive margins were approved.</p>
+          <div class="chart-wrap"><canvas id="margin-chart" dir="ltr"></canvas></div>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <h2 data-i18n="model.reportTitle">Classification Report</h2>
+        <div class="table-wrap"><table id="dashboard-report-table"></table></div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -177,5 +236,6 @@
 <script src="/static/js/app.js?v={{ static_version }}"></script>
 <script src="/static/js/predict.js?v={{ static_version }}"></script>
 <script src="/static/js/model_data.js?v={{ static_version }}"></script>
+<script src="/static/js/dashboard.js?v={{ static_version }}"></script>
 </body>
 </html>

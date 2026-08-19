@@ -6,6 +6,7 @@ prediction endpoint (for the applicant form) as a REST API, and serves the
 two HTML pages. All prediction logic is delegated to inference.py - this
 file only wires it up to HTTP.
 """
+import json
 import logging
 import sys
 import time
@@ -13,7 +14,7 @@ from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -46,6 +47,8 @@ async def lifespan(app: FastAPI):
     app.state.pipeline = pipeline
     app.state.report = report
     app.state.background = background
+    with open("dashboard_data.json") as f:
+        app.state.dashboard_data = json.load(f)
     logger.info(
         "Model loaded: %s (deployment_accuracy=%.4f, trained_at=%s)",
         report["model_name"], report["deployment_accuracy"], report["timestamp"],
@@ -103,6 +106,30 @@ def get_model_summary():
     summary = {key: report[key] for key in MODEL_INFO_KEYS}
     summary["margins_summary"] = {k: v for k, v in report["margins"].items() if k != "values"}
     return summary
+
+
+@app.get("/api/dashboard-data")
+def get_dashboard_data():
+    """
+    Real, precomputed data for the Model Dashboard tab: the fitted SVC's
+    actual hyperparameters and support-vector count, the model file's size
+    and checksum, a PCA scatter of real applicants plus real support
+    vectors, and a binned margin-distribution histogram. See
+    build_dashboard_data.py for how this is derived - it's a one-off
+    computation re-run only when the model is retrained, not on every
+    request.
+    """
+    return app.state.dashboard_data
+
+
+@app.get("/api/model-file")
+def download_model_file():
+    """Serves the trained pipeline file itself, for the dashboard's download button."""
+    return FileResponse(
+        "Full project.pkl",
+        media_type="application/octet-stream",
+        filename="Full project.pkl",
+    )
 
 
 @app.post("/api/predict")
