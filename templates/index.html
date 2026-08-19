@@ -15,17 +15,18 @@
   <button id="currency-toggle" class="currency-toggle" type="button" title="Switch language / currency">
     <span class="ct-symbol">$</span>
   </button>
-  <div class="site-name">Loan Approval Prediction</div>
 </div>
+
+<h1 class="page-title" data-i18n="page.title">Loan Approval Prediction</h1>
 
 <div class="app-shell">
   <nav class="sidebar">
     <button class="nav-item active" data-window="eligibility">
-      <span class="nav-icon">&#9998;</span>
+      <span class="nav-icon-badge"><span class="nav-icon">&#9998;</span></span>
       <span data-i18n="nav.eligibility">Check Eligibility</span>
     </button>
     <button class="nav-item" data-window="model-data">
-      <span class="nav-icon">&#9881;</span>
+      <span class="nav-icon-badge"><span class="nav-icon">&#9881;</span></span>
       <span data-i18n="nav.modelData">Model Data</span>
     </button>
   </nav>
@@ -34,8 +35,9 @@
 
     <!-- ===================== Eligibility window ===================== -->
     <section id="window-eligibility" class="window active">
+     <div class="eligibility-grid">
       <div class="glass-card form-card">
-        <h1 data-i18n="form.title">Loan Application Details</h1>
+        <h2 data-i18n="form.title">Loan Application Details</h2>
         <p class="subtitle" data-i18n="form.subtitle">Fill in your details to check your eligibility.</p>
 
         <form id="predict-form">
@@ -113,9 +115,32 @@
           <div id="result-headline" class="result-headline"></div>
           <div id="result-confidence" class="result-confidence"></div>
           <button type="button" id="why-toggle" class="why-toggle hidden" data-i18n="result.why">Why?</button>
+          <div id="result-explanation-sentence" class="explanation-sentence hidden"></div>
           <ul id="result-contributions" class="contributions hidden"></ul>
         </div>
       </div>
+
+      <div class="glass-card look-within-card">
+        <h2 data-i18n="lookWithin.title">The Look From Within</h2>
+        <div class="look-within-viz">
+          <div class="lw-node lw-input">
+            <span class="lw-icon">&#128202;</span>
+            <span data-i18n="lookWithin.input">Your Data</span>
+          </div>
+          <div class="lw-flow"></div>
+          <div class="lw-node lw-kernel">
+            <div class="lw-kernel-shape"></div>
+            <span data-i18n="lookWithin.kernel">Kernel Space</span>
+          </div>
+          <div class="lw-flow"></div>
+          <div class="lw-node lw-output">
+            <span class="lw-icon">&#9878;</span>
+            <span data-i18n="lookWithin.output">Decision</span>
+          </div>
+        </div>
+        <p class="lw-caption" data-i18n="lookWithin.caption">Your details are scaled, then compared against thousands of past applicants inside the model's kernel space to reach a decision.</p>
+      </div>
+     </div>
     </section>
 
     <!-- ===================== Model Data window ===================== -->

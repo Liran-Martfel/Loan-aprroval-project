@@ -9,7 +9,11 @@
   const confidenceEl = document.getElementById('result-confidence');
   const whyToggle = document.getElementById('why-toggle');
   const contributionsEl = document.getElementById('result-contributions');
+  const sentenceEl = document.getElementById('result-explanation-sentence');
   let lastPayload = null;
+  let lastResult = null;
+  let lastApproved = null;
+  let lastContributions = null;
   let explanationLoaded = false;
 
   function fieldScale(fieldDiv) {
@@ -39,7 +43,7 @@
       display.textContent = '--';
       return;
     }
-    display.textContent = `${(ratio * 100).toFixed(1)}%`;
+    display.innerHTML = `<span class="ltr-num">${(ratio * 100).toFixed(1)}%</span>`;
 
     const range = getRange('loan_percent_income');
     const hint = fieldDiv.querySelector('.field-hint');
@@ -52,9 +56,9 @@
       const inRange = ratio >= low && ratio <= high;
       fieldDiv.classList.toggle('invalid', !inRange);
       if (hint) {
-        hint.textContent = inRange
+        hint.innerHTML = inRange
           ? AppI18n.t('field.loan_percent_income_hint')
-          : `${AppI18n.t('field.loan_percent_income_hint')} (${(low * 100).toFixed(0)}% - ${(high * 100).toFixed(0)}%)`;
+          : `${AppI18n.t('field.loan_percent_income_hint')} <span class="ltr-num">(${(low * 100).toFixed(0)}% - ${(high * 100).toFixed(0)}%)</span>`;
       }
     }
   }
@@ -88,9 +92,9 @@
     // that point are extrapolation, worth a heads-up rather than a block.
     const trainedMax = range ? range[1] : null;
     if (!inRange && hint) {
-      hint.textContent = `${AppI18n.t('field.loan_amnt_range_hint')} $${low.toLocaleString()} - $${high.toLocaleString()}`;
+      hint.innerHTML = `${AppI18n.t('field.loan_amnt_range_hint')} <span class="ltr-num">$${low.toLocaleString()} - $${high.toLocaleString()}</span>`;
     } else if (trainedMax !== null && value > trainedMax && hint) {
-      hint.textContent = `${AppI18n.t('field.loan_amnt_extrapolation_hint')} $${trainedMax.toLocaleString()}.`;
+      hint.innerHTML = `${AppI18n.t('field.loan_amnt_extrapolation_hint')} <span class="ltr-num">$${trainedMax.toLocaleString()}.</span>`;
     } else if (hint) {
       hint.textContent = '';
     }
@@ -138,9 +142,9 @@
 
     fieldDiv.classList.toggle('invalid', !inRange);
     if (hint) {
-      hint.textContent = inRange
+      hint.innerHTML = inRange
         ? ''
-        : `${(low * scale).toLocaleString()} - ${(high * scale).toLocaleString()}`;
+        : `<span class="ltr-num">${(low * scale).toLocaleString()} - ${(high * scale).toLocaleString()}</span>`;
     }
     return inRange;
   }
@@ -181,17 +185,42 @@
     Object.entries(contributions).forEach(([feature, value]) => {
       const li = document.createElement('li');
       const sign = value >= 0 ? 'positive' : 'negative';
-      li.innerHTML = `<span>${AppI18n.t('field.' + feature) || feature}</span><span class="${sign}">${value.toFixed(3)}</span>`;
+      li.innerHTML = `<span>${AppI18n.t('field.' + feature) || feature}</span><span class="${sign} ltr-num">${value.toFixed(3)}</span>`;
       contributionsEl.appendChild(li);
     });
   }
 
-  function renderResult(result) {
-    resultPanel.classList.remove('hidden');
-    contributionsEl.classList.add('hidden');
-    contributionsEl.innerHTML = '';
-    explanationLoaded = false;
+  // Turns the raw SHAP numbers into one plain-language sentence: the top
+  // 1-2 factors that pushed toward the actual outcome (positive values push
+  // toward approval, negative toward denial - so for a denial we highlight
+  // the strongest negative contributors, and vice versa for an approval).
+  function renderExplanationSentence(contributions, approved) {
+    const entries = Object.entries(contributions);
+    const relevant = approved
+      ? entries.filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
+      : entries.filter(([, v]) => v < 0).sort((a, b) => a[1] - b[1]);
 
+    if (!relevant.length) {
+      sentenceEl.textContent = AppI18n.t('result.reasonNone');
+    } else {
+      const names = relevant.slice(0, 2).map(([feature]) => AppI18n.t('field.' + feature) || feature);
+      // Hebrew's "and" (ו) prefixes directly onto the next word, unlike
+      // English's standalone "and" - joining them the same way reads as a
+      // grammar mistake in Hebrew.
+      const factors = names.length < 2
+        ? names[0]
+        : AppI18n.lang === 'he'
+          ? `${names[0]} ${AppI18n.t('common.and')}${names[1]}`
+          : names.join(` ${AppI18n.t('common.and')} `);
+      sentenceEl.textContent = AppI18n.tFormat(
+        approved ? 'result.reasonApproved' : 'result.reasonDenied',
+        { factors }
+      );
+    }
+    sentenceEl.classList.remove('hidden');
+  }
+
+  function renderHeadline(result) {
     if (!result.valid) {
       headlineEl.textContent = AppI18n.t('result.invalid');
       headlineEl.className = 'result-headline denied';
@@ -199,12 +228,37 @@
       whyToggle.classList.add('hidden');
       return;
     }
-
     headlineEl.textContent = result.approved ? AppI18n.t('result.approved') : AppI18n.t('result.denied');
     headlineEl.className = `result-headline ${result.approved ? 'approved' : 'denied'}`;
-    confidenceEl.textContent = `${AppI18n.t('result.confidence')}: ${result.confidence.toFixed(1)}%`;
+    confidenceEl.innerHTML = `${AppI18n.t('result.confidence')}: <span class="ltr-num">${result.confidence.toFixed(1)}%</span>`;
     whyToggle.classList.remove('hidden');
   }
+
+  function renderResult(result) {
+    resultPanel.classList.remove('hidden');
+    contributionsEl.classList.add('hidden');
+    contributionsEl.innerHTML = '';
+    sentenceEl.classList.add('hidden');
+    sentenceEl.textContent = '';
+    explanationLoaded = false;
+    lastResult = result;
+    lastContributions = null;
+    lastApproved = result.valid ? result.approved : null;
+    renderHeadline(result);
+  }
+
+  // Dynamically-rendered result text (headline, explanation sentence,
+  // contribution labels) isn't covered by AppI18n.apply()'s data-i18n walk,
+  // since it didn't exist in the DOM yet when that ran - refresh it here
+  // whenever the language toggles, without discarding what's loaded.
+  document.addEventListener('app:language-changed', () => {
+    if (!lastResult) return;
+    renderHeadline(lastResult);
+    if (lastContributions) {
+      renderExplanationSentence(lastContributions, lastApproved);
+      renderContributions(lastContributions);
+    }
+  });
 
   let explanationInFlight = false;
 
@@ -224,6 +278,8 @@
       });
       const data = await res.json();
       if (data.valid) {
+        lastContributions = data.feature_contributions;
+        renderExplanationSentence(data.feature_contributions, lastApproved);
         renderContributions(data.feature_contributions);
         explanationLoaded = true;
       } else {

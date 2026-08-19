@@ -3,20 +3,24 @@
 // and a collapsible "advanced metrics" section.
 
 (function () {
-  function statCard(labelKey, value) {
+  function statCard(labelKey, value, isNumeric) {
     const div = document.createElement('div');
     div.className = 'stat-card';
-    div.innerHTML = `<div class="stat-label">${AppI18n.t(labelKey)}</div><div class="stat-value">${value}</div>`;
+    const valueHtml = isNumeric ? `<span class="ltr-num">${value}</span>` : value;
+    div.innerHTML = `<div class="stat-label">${AppI18n.t(labelKey)}</div><div class="stat-value">${valueHtml}</div>`;
     return div;
   }
 
   function renderStats(info) {
     const row = document.getElementById('stat-cards');
     row.innerHTML = '';
-    row.appendChild(statCard('stat.modelName', info.model_name));
-    row.appendChild(statCard('stat.accuracy', `${(info.deployment_accuracy * 100).toFixed(1)}%`));
-    row.appendChild(statCard('stat.rows', info.n_training_rows.toLocaleString()));
-    row.appendChild(statCard('stat.trained', new Date(info.timestamp).toLocaleDateString()));
+    // model_name is a long descriptive string (e.g. "SVC (kernel=rbf),
+    // calibrated via CalibratedClassifierCV for deployment") - only the
+    // part before the first comma belongs on a compact stat card.
+    row.appendChild(statCard('stat.modelName', info.model_name.split(',')[0], false));
+    row.appendChild(statCard('stat.accuracy', `${(info.deployment_accuracy * 100).toFixed(1)}%`, true));
+    row.appendChild(statCard('stat.rows', info.n_training_rows.toLocaleString(), true));
+    row.appendChild(statCard('stat.trained', new Date(info.timestamp).toLocaleDateString(), true));
   }
 
   function renderFeatures(info) {
@@ -29,7 +33,7 @@
       const isBinary = feature === 'previous_loan_defaults_on_file';
       const rangeText = isBinary ? 'No / Yes' : `${range[0].toLocaleString()} - ${range[1].toLocaleString()}`;
       div.innerHTML = `<div class="fname">${AppI18n.t('field.' + feature) || feature}</div>
-                        <div class="frange">${rangeText} (${info.input_schema[feature]})</div>`;
+                        <div class="frange"><span class="ltr-num">${rangeText}</span> (${info.input_schema[feature]})</div>`;
       container.appendChild(div);
     });
   }

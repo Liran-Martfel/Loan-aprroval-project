@@ -8,8 +8,15 @@ const TRANSLATIONS = {
   en: {
     dir: 'ltr',
     currencySymbol: '$',
+    'page.title': 'Loan Approval Prediction',
     'nav.eligibility': 'Check Eligibility',
     'nav.modelData': 'Model Data',
+    'lookWithin.title': 'The Look From Within',
+    'lookWithin.input': 'Your Data',
+    'lookWithin.kernel': 'Kernel Space',
+    'lookWithin.output': 'Decision',
+    'lookWithin.caption': "Your details are scaled, then compared against thousands of past applicants inside the model's kernel space to reach a decision.",
+    'common.and': 'and',
     'form.title': 'Loan Application Details',
     'form.subtitle': 'Fill in your details to check your eligibility.',
     'form.submit': 'Check Loan Eligibility',
@@ -30,6 +37,9 @@ const TRANSLATIONS = {
     'result.confidence': 'Confidence',
     'result.why': 'Why?',
     'result.explaining': 'Working out why (~10s)...',
+    'result.reasonApproved': 'This application was approved mainly because of: {factors}.',
+    'result.reasonDenied': 'This application was not approved mainly because of: {factors}.',
+    'result.reasonNone': 'No single factor stood out strongly in this decision.',
     'result.invalid': 'Please fix the highlighted fields.',
     'result.error': 'Something went wrong. Please try again.',
     'model.featuresTitle': 'Features',
@@ -46,8 +56,15 @@ const TRANSLATIONS = {
   he: {
     dir: 'rtl',
     currencySymbol: '₪',
+    'page.title': 'חיזוי אישור הלוואה',
     'nav.eligibility': 'בדיקת זכאות',
     'nav.modelData': 'נתוני המודל',
+    'lookWithin.title': 'המבט מבפנים',
+    'lookWithin.input': 'הנתונים שלך',
+    'lookWithin.kernel': 'מרחב הקרנל',
+    'lookWithin.output': 'החלטה',
+    'lookWithin.caption': 'הפרטים שלך מנורמלים ואז מושווים לאלפי בקשות עבר בתוך מרחב הקרנל של המודל כדי להגיע להחלטה.',
+    'common.and': 'ו',
     'form.title': 'פרטי בקשת הלוואה',
     'form.subtitle': 'מלא/י את הפרטים שלך כדי לבדוק זכאות.',
     'form.submit': 'בדיקת זכאות להלוואה',
@@ -68,6 +85,9 @@ const TRANSLATIONS = {
     'result.confidence': 'רמת ביטחון',
     'result.why': 'למה?',
     'result.explaining': 'בודקים למה (כ-10 שניות)...',
+    'result.reasonApproved': 'הבקשה אושרה בעיקר בשל: {factors}.',
+    'result.reasonDenied': 'הבקשה לא אושרה בעיקר בשל: {factors}.',
+    'result.reasonNone': 'אף גורם בודד לא בלט במיוחד בהחלטה זו.',
     'result.invalid': 'אנא תקנ/י את השדות המסומנים.',
     'result.error': 'אירעה תקלה. נסו/י שוב.',
     'model.featuresTitle': 'מאפייני המודל',
@@ -87,6 +107,11 @@ const AppI18n = {
   lang: 'en',
   t(key) {
     return (TRANSLATIONS[this.lang] && TRANSLATIONS[this.lang][key]) || key;
+  },
+  tFormat(key, vars) {
+    let text = this.t(key);
+    Object.entries(vars || {}).forEach(([k, v]) => { text = text.replace(`{${k}}`, v); });
+    return text;
   },
   currencySymbol() {
     return TRANSLATIONS[this.lang].currencySymbol;
