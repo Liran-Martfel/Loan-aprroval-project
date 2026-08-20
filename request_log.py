@@ -26,40 +26,50 @@ logger = logging.getLogger("loan_approval")
 
 
 def init_db():
+    """
+    Creates the log tables if needed. Deliberately swallows connection
+    failures (e.g. Neon's free-tier database waking up from idle-suspend
+    can briefly refuse connections) - this runs during app startup, and a
+    slow/unavailable database must never take the whole site down over a
+    feature as non-essential as logging.
+    """
     if not DATABASE_URL:
         logger.warning("DATABASE_URL not set - persistent request logging is disabled.")
         return
-    with psycopg2.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS request_log (
-                    id SERIAL PRIMARY KEY,
-                    ts TIMESTAMPTZ NOT NULL,
-                    method TEXT NOT NULL,
-                    path TEXT NOT NULL,
-                    status_code INTEGER NOT NULL,
-                    duration_ms REAL NOT NULL,
-                    error_message TEXT
-                )
-            """)
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS prediction_log (
-                    id SERIAL PRIMARY KEY,
-                    ts TIMESTAMPTZ NOT NULL,
-                    person_income DOUBLE PRECISION,
-                    person_emp_exp DOUBLE PRECISION,
-                    loan_amnt DOUBLE PRECISION,
-                    loan_int_rate DOUBLE PRECISION,
-                    loan_percent_income DOUBLE PRECISION,
-                    credit_score DOUBLE PRECISION,
-                    previous_loan_defaults_on_file TEXT,
-                    valid BOOLEAN NOT NULL,
-                    approved BOOLEAN,
-                    confidence DOUBLE PRECISION,
-                    errors TEXT
-                )
-            """)
-        conn.commit()
+    try:
+        with psycopg2.connect(DATABASE_URL) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS request_log (
+                        id SERIAL PRIMARY KEY,
+                        ts TIMESTAMPTZ NOT NULL,
+                        method TEXT NOT NULL,
+                        path TEXT NOT NULL,
+                        status_code INTEGER NOT NULL,
+                        duration_ms REAL NOT NULL,
+                        error_message TEXT
+                    )
+                """)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS prediction_log (
+                        id SERIAL PRIMARY KEY,
+                        ts TIMESTAMPTZ NOT NULL,
+                        person_income DOUBLE PRECISION,
+                        person_emp_exp DOUBLE PRECISION,
+                        loan_amnt DOUBLE PRECISION,
+                        loan_int_rate DOUBLE PRECISION,
+                        loan_percent_income DOUBLE PRECISION,
+                        credit_score DOUBLE PRECISION,
+                        previous_loan_defaults_on_file TEXT,
+                        valid BOOLEAN NOT NULL,
+                        approved BOOLEAN,
+                        confidence DOUBLE PRECISION,
+                        errors TEXT
+                    )
+                """)
+            conn.commit()
+    except Exception:
+        logger.exception("Failed to initialize the persistent log database - continuing without it")
 
 
 def log_request(method, path, status_code, duration_ms, error_message=None):
