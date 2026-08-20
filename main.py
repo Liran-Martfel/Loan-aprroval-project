@@ -53,13 +53,28 @@ MODEL_INFO_KEYS = [
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Loading model artifacts...")
-    pipeline, report, background = load_artifacts()
+    request_log.init_db()
+    try:
+        pipeline, report, background = load_artifacts()
+        with open("model_artifacts/dashboard_data.json") as f:
+            dashboard_data = json.load(f)
+    except FileNotFoundError as exc:
+        # The assignment spec requires the app to stay up and show a clear
+        # "please train the model first" message instead of crashing when
+        # one of the three trained artifacts hasn't been produced yet - see
+        # index()/api routes below, which check model_loaded before using
+        # app.state.pipeline/report/background/dashboard_data.
+        logger.error("Model artifacts missing, starting in degraded mode: %s", exc)
+        app.state.model_loaded = False
+        app.state.pipeline = app.state.report = app.state.background = app.state.dashboard_data = None
+        yield
+        logger.info("Shutting down.")
+        return
+    app.state.model_loaded = True
     app.state.pipeline = pipeline
     app.state.report = report
     app.state.background = background
-    with open("model_artifacts/dashboard_data.json") as f:
-        app.state.dashboard_data = json.load(f)
-    request_log.init_db()
+    app.state.dashboard_data = dashboard_data
     logger.info(
         "Model loaded: %s (deployment_accuracy=%.4f, trained_at=%s)",
         report["model_name"], report["deployment_accuracy"], report["timestamp"],
@@ -139,8 +154,17 @@ def get_prediction_logs(x_admin_key: str = Header(default=None)):
     return {"predictions": request_log.get_recent_predictions()}
 
 
+def _model_unavailable():
+    return JSONResponse(
+        status_code=503,
+        content={"error": "Model not loaded. Train the model and save it before running the app."},
+    )
+
+
 @app.get("/")
 def index(request: Request):
+    if not app.state.model_loaded:
+        return templates.TemplateResponse(request, "model_missing.html", {}, status_code=503)
     return templates.TemplateResponse(request, "index.html", {"static_version": STATIC_VERSION})
 
 
@@ -152,6 +176,8 @@ def get_model_summary():
     Model Data page. The full per-row margin values are dropped in favor
     of their summary stats, to keep the payload small.
     """
+    if not app.state.model_loaded:
+        return _model_unavailable()
     report = app.state.report
     summary = {key: report[key] for key in MODEL_INFO_KEYS}
     summary["margins_summary"] = {k: v for k, v in report["margins"].items() if k != "values"}
@@ -170,12 +196,16 @@ def get_dashboard_data():
     computation re-run only when the model is retrained, not on every
     request.
     """
+    if not app.state.model_loaded:
+        return _model_unavailable()
     return app.state.dashboard_data
 
 
 @app.get("/api/model-file")
 def download_model_file():
     """Serves the trained pipeline file itself, for the dashboard's download button."""
+    if not app.state.model_loaded:
+        return _model_unavailable()
     return FileResponse(
         "model_artifacts/Full project.pkl",
         media_type="application/octet-stream",
@@ -197,6 +227,8 @@ def predict(applicant: ApplicantInput, request: Request, background_tasks: Backg
     response is already on its way back, so a slow database round-trip
     never adds to how long the button feels like it's thinking.
     """
+    if not app.state.model_loaded:
+        return _model_unavailable()
     raw_applicant = applicant.model_dump()
     try:
         result = evaluate_application(
@@ -223,6 +255,8 @@ def explain(applicant: ApplicantInput, request: Request):
     Computes the (slow) SHAP explanation for one applicant, fetched lazily
     by the frontend only when the user opens the "Why?" panel.
     """
+    if not app.state.model_loaded:
+        return _model_unavailable()
     raw_applicant = applicant.model_dump()
     errors = validate_application(raw_applicant, app.state.report)
     if errors:

@@ -585,6 +585,16 @@ table th { color: var(--text-muted); font-weight: 600; }
 .log-status-error { color: var(--danger); font-weight: 700; }
 .log-error-cell { color: var(--danger); font-size: 0.78rem; white-space: normal; max-width: 320px; }
 
+/* ---------- Model-missing status page ---------- */
+.status-shell { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+.status-card { max-width: 560px; width: 100%; text-align: center; }
+.status-card h1 { margin: 0 0 22px; font-size: 1.6rem; color: var(--accent-dark); }
+.status-box { display: flex; align-items: center; gap: 12px; text-align: start; padding: 14px 16px; border-radius: var(--radius-md); margin-bottom: 14px; font-size: 0.95rem; }
+.status-box:last-child { margin-bottom: 0; }
+.status-box .status-icon { flex-shrink: 0; font-size: 1.3rem; }
+.status-box.status-info { background: var(--accent-soft); color: var(--accent-dark); }
+.status-box.status-warn { background: rgba(214, 69, 80, 0.12); color: var(--danger); }
+
 @media (max-width: 960px) {
   .dashboard-grid-3 { grid-template-columns: 1fr; }
   .dashboard-grid-2 { grid-template-columns: 1fr; }
