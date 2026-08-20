@@ -6,6 +6,7 @@ prediction endpoint (for the applicant form) as a REST API, and serves the
 two HTML pages. All prediction logic is delegated to inference.py - this
 file only wires it up to HTTP.
 """
+import asyncio
 import json
 import logging
 import os
@@ -14,7 +15,7 @@ import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import FastAPI, Header, Request
+from fastapi import BackgroundTasks, FastAPI, Header, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -87,6 +88,11 @@ class ApplicantInput(BaseModel):
     previous_loan_defaults_on_file: Literal["Yes", "No"]
 
 
+def _log_request_in_background(*args):
+    """Runs the (blocking) database write in a thread so it never adds to response latency."""
+    asyncio.get_running_loop().run_in_executor(None, request_log.log_request, *args)
+
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.time()
@@ -95,7 +101,7 @@ async def log_requests(request: Request, call_next):
     except Exception as exc:
         duration_ms = (time.time() - start) * 1000
         logger.exception("Unhandled error for %s %s", request.method, request.url.path)
-        request_log.log_request(request.method, request.url.path, 500, duration_ms, str(exc))
+        _log_request_in_background(request.method, request.url.path, 500, duration_ms, str(exc))
         raise
     duration_ms = (time.time() - start) * 1000
     error_message = getattr(request.state, "error_message", None)
@@ -109,7 +115,7 @@ async def log_requests(request: Request, call_next):
     is_api_call = request.url.path.startswith("/api/")
     is_error = error_message is not None or response.status_code >= 400
     if is_api_call or is_error:
-        request_log.log_request(request.method, request.url.path, response.status_code, duration_ms, error_message)
+        _log_request_in_background(request.method, request.url.path, response.status_code, duration_ms, error_message)
     return response
 
 
@@ -123,6 +129,14 @@ def get_logs(x_admin_key: str = Header(default=None)):
     if not ADMIN_LOG_KEY or x_admin_key != ADMIN_LOG_KEY:
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
     return {"events": request_log.get_recent()}
+
+
+@app.get("/api/logs/predictions")
+def get_prediction_logs(x_admin_key: str = Header(default=None)):
+    """Recent 'Check Loan Eligibility' submissions (inputs + outcome), same admin gate as /api/logs."""
+    if not ADMIN_LOG_KEY or x_admin_key != ADMIN_LOG_KEY:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    return {"predictions": request_log.get_recent_predictions()}
 
 
 @app.get("/")
@@ -170,7 +184,7 @@ def download_model_file():
 
 
 @app.post("/api/predict")
-def predict(applicant: ApplicantInput, request: Request):
+def predict(applicant: ApplicantInput, request: Request, background_tasks: BackgroundTasks):
     """
     Runs one applicant's data through the trained pipeline and returns
     whether the loan would be approved and a confidence score. Deliberately
@@ -178,15 +192,25 @@ def predict(applicant: ApplicantInput, request: Request):
     (see explain_prediction's docstring in inference.py) and would make the
     "Check Loan Eligibility" button feel broken. The frontend fetches the
     explanation separately, lazily, only if the user opens "Why?".
+
+    The submission log write is a BackgroundTask - it runs after the
+    response is already on its way back, so a slow database round-trip
+    never adds to how long the button feels like it's thinking.
     """
+    raw_applicant = applicant.model_dump()
     try:
-        return evaluate_application(
-            app.state.pipeline, applicant.model_dump(), app.state.background,
+        result = evaluate_application(
+            app.state.pipeline, raw_applicant, app.state.background,
             app.state.report, explain=False,
         )
+        background_tasks.add_task(request_log.log_prediction, raw_applicant, result)
+        return result
     except Exception as exc:
-        logger.exception("Prediction failed for input: %s", applicant.model_dump())
+        logger.exception("Prediction failed for input: %s", raw_applicant)
         request.state.error_message = str(exc)
+        background_tasks.add_task(
+            request_log.log_prediction, raw_applicant, {"valid": False, "errors": ["Internal server error"]},
+        )
         return JSONResponse(
             status_code=500,
             content={"valid": False, "errors": ["Internal server error"]},

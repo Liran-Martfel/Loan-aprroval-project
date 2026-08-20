@@ -1,13 +1,14 @@
 """
-Persistent request/error logging for the in-app Logs page.
+Persistent request/error and prediction logging for the in-app Logs page.
 
 Writes to a Postgres database (DATABASE_URL env var) instead of a local
 file, because Render's free-tier disk is wiped on every restart/redeploy -
 a file would lose history exactly when you'd want to look back at it.
 
-Deliberately stores no applicant data (income, credit score, etc.) - only
-request metadata and error messages - so the logs page can be shown behind
-a simple password without risking exposing anyone's financial details.
+Two tables: request_log (method/path/status/timing/errors - no applicant
+data) and prediction_log (the applicant values submitted to "Check Loan
+Eligibility" plus the outcome). Both sit behind the same admin-key gate on
+the Logs page - see main.py's /api/logs and /api/logs/predictions.
 
 If DATABASE_URL isn't set (e.g. running locally without it configured),
 every function here becomes a no-op instead of failing, so the rest of
@@ -41,6 +42,23 @@ def init_db():
                     error_message TEXT
                 )
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS prediction_log (
+                    id SERIAL PRIMARY KEY,
+                    ts TIMESTAMPTZ NOT NULL,
+                    person_income DOUBLE PRECISION,
+                    person_emp_exp DOUBLE PRECISION,
+                    loan_amnt DOUBLE PRECISION,
+                    loan_int_rate DOUBLE PRECISION,
+                    loan_percent_income DOUBLE PRECISION,
+                    credit_score DOUBLE PRECISION,
+                    previous_loan_defaults_on_file TEXT,
+                    valid BOOLEAN NOT NULL,
+                    approved BOOLEAN,
+                    confidence DOUBLE PRECISION,
+                    errors TEXT
+                )
+            """)
         conn.commit()
 
 
@@ -58,6 +76,78 @@ def log_request(method, path, status_code, duration_ms, error_message=None):
             conn.commit()
     except Exception:
         logger.exception("Failed to write to the persistent request log")
+
+
+def log_prediction(raw_applicant, result):
+    """
+    Records one "Check Loan Eligibility" submission: the raw form values
+    plus the outcome (or the validation errors, if the input was rejected).
+    """
+    if not DATABASE_URL:
+        return
+    try:
+        with psycopg2.connect(DATABASE_URL) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO prediction_log (
+                        ts, person_income, person_emp_exp, loan_amnt, loan_int_rate,
+                        loan_percent_income, credit_score, previous_loan_defaults_on_file,
+                        valid, approved, confidence, errors
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        datetime.now(timezone.utc),
+                        raw_applicant.get("person_income"),
+                        raw_applicant.get("person_emp_exp"),
+                        raw_applicant.get("loan_amnt"),
+                        raw_applicant.get("loan_int_rate"),
+                        raw_applicant.get("loan_percent_income"),
+                        raw_applicant.get("credit_score"),
+                        raw_applicant.get("previous_loan_defaults_on_file"),
+                        result.get("valid", False),
+                        result.get("approved"),
+                        result.get("confidence"),
+                        "; ".join(result["errors"]) if result.get("errors") else None,
+                    ),
+                )
+            conn.commit()
+    except Exception:
+        logger.exception("Failed to write to the persistent prediction log")
+
+
+def get_recent_predictions(limit=300):
+    if not DATABASE_URL:
+        return []
+    with psycopg2.connect(DATABASE_URL) as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT ts, person_income, person_emp_exp, loan_amnt, loan_int_rate,
+                       loan_percent_income, credit_score, previous_loan_defaults_on_file,
+                       valid, approved, confidence, errors
+                FROM prediction_log ORDER BY id DESC LIMIT %s
+                """,
+                (limit,),
+            )
+            rows = cur.fetchall()
+    return [
+        {
+            "timestamp": row["ts"].isoformat(),
+            "person_income": row["person_income"],
+            "person_emp_exp": row["person_emp_exp"],
+            "loan_amnt": row["loan_amnt"],
+            "loan_int_rate": row["loan_int_rate"],
+            "loan_percent_income": row["loan_percent_income"],
+            "credit_score": row["credit_score"],
+            "previous_loan_defaults_on_file": row["previous_loan_defaults_on_file"],
+            "valid": row["valid"],
+            "approved": row["approved"],
+            "confidence": round(row["confidence"], 1) if row["confidence"] is not None else None,
+            "errors": row["errors"],
+        }
+        for row in rows
+    ]
 
 
 def get_recent(limit=300):

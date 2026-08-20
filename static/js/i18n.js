@@ -101,6 +101,12 @@ const TRANSLATIONS = {
     'logs.colStatus': 'Status',
     'logs.colDuration': 'Duration',
     'logs.colError': 'Error',
+    'logs.colOutcome': 'Outcome',
+    'logs.colConfidence': 'Confidence',
+    'logs.invalid': 'Invalid',
+    'logs.predictionsTitle': 'Eligibility Check Submissions',
+    'logs.predictionsSubtitle': 'The most recent 300 "Check Loan Eligibility" submissions, including the values entered and the outcome.',
+    'form.disclaimer': 'Submissions may be logged for debugging purposes.',
   },
   he: {
     dir: 'rtl',
@@ -198,6 +204,12 @@ const TRANSLATIONS = {
     'logs.colStatus': 'סטטוס',
     'logs.colDuration': 'משך',
     'logs.colError': 'שגיאה',
+    'logs.colOutcome': 'תוצאה',
+    'logs.colConfidence': 'רמת ביטחון',
+    'logs.invalid': 'לא תקין',
+    'logs.predictionsTitle': 'בקשות בדיקת זכאות',
+    'logs.predictionsSubtitle': '300 בקשות "בדיקת זכאות להלוואה" האחרונות, כולל הערכים שהוזנו והתוצאה.',
+    'form.disclaimer': 'בקשות עשויות להישמר למטרות איתור תקלות.',
   },
 };
 
