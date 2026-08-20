@@ -5,8 +5,19 @@
 
 ---
 
+## 📁 מבנה הריפוזיטורי
+```
+main.py, inference.py, request_log.py   - קוד השרת (FastAPI)
+templates/, static/                     - HTML/CSS/JS של האתר
+notebooks/model_training.ipynb          - ה-notebook שמאמן את המודל הפרוס
+notebooks/exploration.ipynb             - notebook לימוד/חקירה (כמה גישות שנוסו לפני הגישה הסופית)
+data/Project_DB_loan_approval.csv       - דאטה-סט האימון
+model_artifacts/                        - כל מה שהאימון מפיק: קובץ המודל, model_report.json, background_sample.pkl, dashboard_data.json, project_all_ways.pkl
+build_dashboard_data.py                 - סקריפט שמחשב את נתוני "לוח בקרת המודל" מתוך model_artifacts/
+```
+
 ## 📊 ביצועי המודל והנתונים
-- **דאטה-סט:** `Project_DB_loan_approval.csv` (סינון גילאי 18+).
+- **דאטה-סט:** `data/Project_DB_loan_approval.csv` (סינון גילאי 18+).
 - **פיצ'רים נבחרים:** הכנסה, סכום הלוואה, ריבית, אחוז מתוך הכנסה, דירוג אשראי והיסטוריית מחדלי הלוואה קודמים (`previous_loan_defaults_on_file`).
 - **אלגוריתם:** `SVC(kernel='rbf', C=10)` שנבחר באמצעות Cross-Validation.
 - **תוצאות אימון (Test Set):**
@@ -26,8 +37,8 @@
 מספר הגרסה מוגדר במשתנה `APP_VERSION` בראש הקובץ `main.py`. כדאי לעדכן אותו (ולתעד כאן מה השתנה) בכל פעם שמבצעים שינוי משמעותי ופורסים אותו לאתר החי.
 
 ### איך מאמנים מחדש את המודל
-1. מריצים את ה-notebook (`final code for Loan Approval Prediction Project.ipynb`) מההתחלה ועד הסוף, מול הדאטה-סט המלא. זה יוצר מחדש את `Full project.pkl`, `model_report.json` ו-`background_sample.pkl`.
-2. מריצים `python build_dashboard_data.py` — זה מחשב מחדש את נתוני "לוח בקרת המודל" (וקטורי תמיכה, גבול ההחלטה, היסטוגרמת השוליים) ושומר אותם ב-`dashboard_data.json` ובתמונה `static/img/decision_boundary.png`.
+1. מריצים את ה-notebook `notebooks/model_training.ipynb` מההתחלה ועד הסוף, מול הדאטה-סט המלא. זה יוצר מחדש את `model_artifacts/Full project.pkl`, `model_artifacts/model_report.json` ו-`model_artifacts/background_sample.pkl`. (חשוב: מריצים אותו כ-notebook תוך שהוא נמצא בתיקיית `notebooks/` - הנתיבים היחסיים בתוכו מבוססים על זה.)
+2. מריצים מתיקיית השורש של הפרויקט (לא מתוך `notebooks/`): `python build_dashboard_data.py` — זה מחשב מחדש את נתוני "לוח בקרת המודל" (וקטורי תמיכה, גבול ההחלטה, היסטוגרמת השוליים) ושומר אותם ב-`model_artifacts/dashboard_data.json` ובתמונה `static/img/decision_boundary.png`.
 3. עושים commit ו-push לענף `main`.
 
 ### איך פורסים מחדש

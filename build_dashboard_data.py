@@ -24,10 +24,10 @@ from matplotlib.colors import ListedColormap
 
 from inference import CATEGORICAL_MAPS
 
-PKL_PATH = 'Full project.pkl'
-CSV_PATH = 'Project_DB_loan_approval.csv'
-REPORT_PATH = 'model_report.json'
-OUT_PATH = 'dashboard_data.json'
+PKL_PATH = 'model_artifacts/Full project.pkl'
+CSV_PATH = 'data/Project_DB_loan_approval.csv'
+REPORT_PATH = 'model_artifacts/model_report.json'
+OUT_PATH = 'model_artifacts/dashboard_data.json'
 BOUNDARY_IMG_PATH = 'static/img/decision_boundary.png'
 
 pipeline = joblib.load(PKL_PATH)
@@ -58,7 +58,7 @@ model_details = {
 with open(PKL_PATH, 'rb') as f:
     file_bytes = f.read()
 model_file = {
-    'filename': PKL_PATH,
+    'filename': os.path.basename(PKL_PATH),
     'size_bytes': len(file_bytes),
     'sha256': hashlib.sha256(file_bytes).hexdigest(),
 }

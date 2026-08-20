@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI):
     app.state.pipeline = pipeline
     app.state.report = report
     app.state.background = background
-    with open("dashboard_data.json") as f:
+    with open("model_artifacts/dashboard_data.json") as f:
         app.state.dashboard_data = json.load(f)
     request_log.init_db()
     logger.info(
@@ -177,7 +177,7 @@ def get_dashboard_data():
 def download_model_file():
     """Serves the trained pipeline file itself, for the dashboard's download button."""
     return FileResponse(
-        "Full project.pkl",
+        "model_artifacts/Full project.pkl",
         media_type="application/octet-stream",
         filename="Full project.pkl",
     )

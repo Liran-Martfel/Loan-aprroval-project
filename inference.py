@@ -2,10 +2,10 @@
 Standalone inference module for the loan-approval model.
 
 This is what a website backend should import - it has no dependency on the
-training notebook. It expects three artifacts (produced by the notebook) to
-sit alongside it: 'Full project.pkl' (the trained pipeline), 'model_report.json'
-(feature order + valid ranges), and 'background_sample.pkl' (a small reference
-sample used for SHAP explanations).
+training notebook. It expects three artifacts (produced by the notebook) in
+the 'model_artifacts/' folder: 'Full project.pkl' (the trained pipeline),
+'model_report.json' (feature order + valid ranges), and
+'background_sample.pkl' (a small reference sample used for SHAP explanations).
 """
 import json
 
@@ -22,8 +22,8 @@ CATEGORICAL_MAPS = {'previous_loan_defaults_on_file': {'No': 0, 'Yes': 1}}
 LOAN_TO_INCOME_CAP = 10
 
 
-def load_artifacts(pkl_path='Full project.pkl', report_path='model_report.json',
-                    background_path='background_sample.pkl'):
+def load_artifacts(pkl_path='model_artifacts/Full project.pkl', report_path='model_artifacts/model_report.json',
+                    background_path='model_artifacts/background_sample.pkl'):
     """Loads the trained pipeline, its report (feature order + valid ranges), and the SHAP background sample."""
     pipeline = joblib.load(pkl_path)
     with open(report_path) as f:
