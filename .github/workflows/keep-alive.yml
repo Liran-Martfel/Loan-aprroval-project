@@ -10,4 +10,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping the live site
-        run: curl -sf --max-time 30 "https://loan-approval-prediction-1a7a.onrender.com/" > /dev/null
+        run: curl -sf --max-time 90 --retry 2 --retry-delay 10 "https://loan-approval-prediction-1a7a.onrender.com/" > /dev/null
