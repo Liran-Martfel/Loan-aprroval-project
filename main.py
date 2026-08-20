@@ -103,7 +103,13 @@ async def log_requests(request: Request, call_next):
         "%s %s -> %s (%.1fms)",
         request.method, request.url.path, response.status_code, duration_ms,
     )
-    request_log.log_request(request.method, request.url.path, response.status_code, duration_ms, error_message)
+    # Persist API calls and any error, but skip plain page/health-check hits
+    # to "/" - Render's own health check pings that path every few seconds,
+    # which would otherwise drown out real activity in the stored history.
+    is_api_call = request.url.path.startswith("/api/")
+    is_error = error_message is not None or response.status_code >= 400
+    if is_api_call or is_error:
+        request_log.log_request(request.method, request.url.path, response.status_code, duration_ms, error_message)
     return response
 
 
