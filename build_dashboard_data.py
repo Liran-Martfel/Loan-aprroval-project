@@ -134,6 +134,129 @@ decision_boundary = {
     'viz_accuracy': float(viz_svc.score(sample_2d, sample_labels)),
 }
 
+# ---- Real support vectors: the actual trained SVC's own support vectors,
+# converted back to real units (real dollars, real credit score) via the
+# pipeline's own StandardScaler. Unlike the PCA section above, nothing here
+# is re-fit or simplified - this is exactly what the deployed model learned
+# to treat as borderline, one real feature at a time. ----
+real_support_vectors = scaler.inverse_transform(svc.support_vectors_)
+dual_coef = svc.dual_coef_[0]
+n0, n1 = (int(n) for n in svc.n_support_)
+sv_class = np.concatenate([np.zeros(n0, dtype=int), np.ones(n1, dtype=int)])
+
+per_class_sample = 250
+sv_sample_idx = np.concatenate([
+    rng.choice(np.where(sv_class == 0)[0], size=min(per_class_sample, n0), replace=False),
+    rng.choice(np.where(sv_class == 1)[0], size=min(per_class_sample, n1), replace=False),
+])
+sv_sample_values = real_support_vectors[sv_sample_idx]
+sv_sample_labels = sv_class[sv_sample_idx]
+sv_sample_influence = np.abs(dual_coef[sv_sample_idx])
+
+support_vectors_payload = {
+    'total_count': int(len(real_support_vectors)),
+    'count_by_class': [n0, n1],
+    'sample_size': int(len(sv_sample_idx)),
+    'sample': [
+        {
+            'features': {f: round(float(v), 4) for f, v in zip(features, sv_sample_values[i])},
+            'label': int(sv_sample_labels[i]),
+            'influence': round(float(sv_sample_influence[i]), 4),
+        }
+        for i in range(len(sv_sample_idx))
+    ],
+}
+
+# ---- Per-feature chart: the real applicant population (light histogram)
+# with the real sampled support vectors marked along the bottom as a rug,
+# colored by class. One panel per feature, in real units throughout. ----
+FEATURE_LABELS = {
+    'person_income': 'Annual Income ($)',
+    'person_emp_exp': 'Employment Experience (yrs)',
+    'loan_amnt': 'Loan Amount ($)',
+    'loan_int_rate': 'Interest Rate (%)',
+    'loan_percent_income': 'Loan-to-Income Ratio',
+    'credit_score': 'Credit Score',
+    'previous_loan_defaults_on_file': 'Previous Defaults (0=No, 1=Yes)',
+}
+SV_IMG_PATH = 'static/img/support_vectors.png'
+
+fig2, axes2 = plt.subplots(4, 2, figsize=(11, 13), dpi=150)
+# Solid backdrop across the WHOLE image (gutters included), not just each
+# subplot - a transparent figure with only the subplot boxes colored looks
+# like a checkerboard of pale boxes floating on the page's vivid gradient,
+# and the pale histogram bars read as "blank" against that clash.
+fig2.patch.set_facecolor('#faf9fc')
+axes2_flat = axes2.flatten()
+denied_mask_sv = sv_sample_labels == 0
+
+DENIED_RGB = (0.839, 0.271, 0.314)    # #d64550
+APPROVED_RGB = (0.122, 0.616, 0.333)  # #1f9d55
+
+
+def rate_color(approval_rate):
+    """Interpolates denied->approved red-to-green by a real bin's approval rate."""
+    return tuple(d + (a - d) * approval_rate for d, a in zip(DENIED_RGB, APPROVED_RGB))
+
+
+for i, feat in enumerate(features):
+    ax = axes2_flat[i]
+    ax.set_facecolor('#faf9fc')
+    full_values = df[feat].to_numpy(dtype=float)
+    if feat == 'previous_loan_defaults_on_file':
+        bin_edges = np.array([-0.5, 0.5, 1.5])
+    else:
+        # A handful of extreme real outliers (e.g. one $7.2M income) would
+        # otherwise squash the whole real distribution into a single bar -
+        # clip the viewing window to the 1st-99th percentile (disclosed in
+        # the figure's footnote) so the bulk of real applicants is legible.
+        lo, hi = np.percentile(full_values, [1, 99])
+        bin_edges = np.linspace(lo, hi, 41)
+    hist_range = (bin_edges[0], bin_edges[-1])
+
+    # Color each bar by its own real approval rate (red=denied, green=approved)
+    # instead of one flat color - the bars themselves now carry real signal,
+    # not just the rug marks underneath them.
+    denied_counts, _ = np.histogram(df.loc[df['loan_status'] == 0, feat], bins=bin_edges)
+    approved_counts, _ = np.histogram(df.loc[df['loan_status'] == 1, feat], bins=bin_edges)
+    totals = denied_counts + approved_counts
+    rates = np.divide(approved_counts, totals, out=np.full(len(totals), 0.5), where=totals > 0)
+    bar_colors = [rate_color(r) for r in rates]
+    ax.bar(bin_edges[:-1], totals, width=np.diff(bin_edges), align='edge',
+           color=bar_colors, alpha=0.9, edgecolor='white', linewidth=0.5)
+    top = totals.max() if len(totals) else 1
+    ax.set_xlim(hist_range)
+    ax.set_ylim(bottom=-0.08 * top, top=top * 1.05)
+
+    sv_values_feat = sv_sample_values[:, i]
+    if feat == 'previous_loan_defaults_on_file':
+        sv_values_feat = sv_values_feat + rng.normal(0, 0.02, size=len(sv_values_feat))
+    ax.scatter(sv_values_feat[denied_mask_sv], np.full(denied_mask_sv.sum(), -0.04 * top),
+               marker='|', s=40, color='#d64550', alpha=0.65)
+    ax.scatter(sv_values_feat[~denied_mask_sv], np.full((~denied_mask_sv).sum(), -0.04 * top),
+               marker='|', s=40, color='#1f9d55', alpha=0.65)
+
+    ax.set_title(FEATURE_LABELS[feat], fontsize=10, color='#2e2540')
+    ax.tick_params(colors='#6b6480', labelsize=8)
+    for spine in ax.spines.values():
+        spine.set_color('#c9c2dd')
+
+axes2_flat[7].axis('off')
+legend_handles = [
+    plt.Line2D([0], [0], color=rate_color(0.0), lw=8, alpha=0.9, label='Bin is mostly denied (real data)'),
+    plt.Line2D([0], [0], color=rate_color(0.5), lw=8, alpha=0.9, label='Bin is a real 50/50 mix'),
+    plt.Line2D([0], [0], color=rate_color(1.0), lw=8, alpha=0.9, label='Bin is mostly approved (real data)'),
+    plt.Line2D([0], [0], marker='|', color='#d64550', linestyle='None', markersize=12, label='Real support vector - Not Approved'),
+    plt.Line2D([0], [0], marker='|', color='#1f9d55', linestyle='None', markersize=12, label='Real support vector - Approved'),
+]
+axes2_flat[7].legend(handles=legend_handles, loc='center', frameon=False, fontsize=9)
+fig2.suptitle('Where the Real Support Vectors Sit (per feature, real units)', fontsize=13, color='#2e2540', y=0.995)
+fig2.text(0.5, 0.005, 'Histograms are clipped to the 1st-99th percentile of real applicants for readability; a few extreme outliers fall outside view.',
+          ha='center', fontsize=8, color='#6b6480')
+fig2.tight_layout(rect=[0, 0.015, 1, 0.98])
+fig2.savefig(SV_IMG_PATH, transparent=False, facecolor=fig2.get_facecolor())
+plt.close(fig2)
+
 # ---- Margin distribution histogram (from the already-computed raw margins
 # in model_report.json - binned here so the API doesn't need to ship the
 # full per-row array). ----
@@ -149,12 +272,14 @@ dashboard_data = {
     'model_file': model_file,
     'decision_boundary': decision_boundary,
     'margin_histogram': margin_histogram,
+    'support_vectors': support_vectors_payload,
 }
 
 with open(OUT_PATH, 'w') as f:
     json.dump(dashboard_data, f)
 
-print(f'Wrote {OUT_PATH} and {BOUNDARY_IMG_PATH}')
+print(f'Wrote {OUT_PATH}, {BOUNDARY_IMG_PATH}, and {SV_IMG_PATH}')
 print('support vectors:', model_details['support_vector_count'])
 print('pca explained variance ratio:', decision_boundary['explained_variance_ratio'])
 print('2D visualization SVC accuracy on its own sample:', decision_boundary['viz_accuracy'])
+print('real support vector sample size:', support_vectors_payload['sample_size'])

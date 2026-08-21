@@ -72,6 +72,7 @@
     const endpoints = [
       { method: 'GET', path: '/api/model-info', descKey: 'dashboard.api.info' },
       { method: 'GET', path: '/api/dashboard-data', descKey: 'dashboard.api.dashboard' },
+      { method: 'GET', path: '/api/model/support_vectors/', descKey: 'dashboard.api.supportVectors' },
       { method: 'POST', path: '/api/predict', descKey: 'dashboard.api.predict' },
       { method: 'POST', path: '/api/explain', descKey: 'dashboard.api.explain' },
       { method: 'GET', path: '/api/model-file', descKey: 'dashboard.api.file' },
@@ -139,6 +140,16 @@
     });
   }
 
+  function renderSupportVectorsCaveat(sv) {
+    const el = document.getElementById('support-vectors-caveat');
+    el.innerHTML = AppI18n.tFormat('dashboard.svCaveat', {
+      total: `<span class="ltr-num">${sv.total_count.toLocaleString()}</span>`,
+      denied: `<span class="ltr-num">${sv.count_by_class[0].toLocaleString()}</span>`,
+      approved: `<span class="ltr-num">${sv.count_by_class[1].toLocaleString()}</span>`,
+      sampleSize: `<span class="ltr-num">${sv.sample_size}</span>`,
+    });
+  }
+
   function renderMarginChart(hist) {
     const ctx = document.getElementById('margin-chart');
     const labels = hist.counts.map((_, i) => `${hist.bin_edges[i].toFixed(1)}`);
@@ -174,6 +185,7 @@
     renderConfusion(info);
     renderReport(info);
     renderBoundaryCaveat(dash.decision_boundary);
+    renderSupportVectorsCaveat(dash.support_vectors);
     renderMarginChart(dash.margin_histogram);
   }
 

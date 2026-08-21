@@ -224,6 +224,13 @@
         <p id="boundary-caveat" class="boundary-caveat"></p>
       </div>
 
+      <div class="glass-card">
+        <h2 data-i18n="dashboard.svTitle">Real Support Vectors, Per Feature</h2>
+        <p class="subtitle" data-i18n="dashboard.svCaption">The actual support vectors from your deployed model, converted back into real units - not a simplified re-fit like the chart above. This shows exactly where the model finds its borderline cases, one real feature at a time.</p>
+        <img id="support-vectors-image" class="boundary-image" alt="Real support vectors per feature" src="/static/img/support_vectors.png?v={{ static_version }}">
+        <p id="support-vectors-caveat" class="boundary-caveat"></p>
+      </div>
+
       <div class="dashboard-grid-2">
         <div class="glass-card">
           <h2 data-i18n="model.confusionTitle">Confusion Matrix</h2>

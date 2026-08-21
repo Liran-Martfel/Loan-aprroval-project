@@ -29,7 +29,7 @@ ADMIN_LOG_KEY = os.environ.get("ADMIN_LOG_KEY")
 # Bumped by hand whenever a change worth tracking goes live - shown in the
 # site's header and in the README, so it's obvious which version is
 # actually deployed at any given time.
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -199,6 +199,19 @@ def get_dashboard_data():
     if not app.state.model_loaded:
         return _model_unavailable()
     return app.state.dashboard_data
+
+
+@app.get("/api/model/support_vectors/")
+def get_support_vectors():
+    """
+    Real support vectors from the deployed SVC, converted back to real units
+    (real dollars, real credit score, etc.) via the pipeline's own
+    StandardScaler - see build_dashboard_data.py for how this sample is
+    derived. Feeds the "Real Support Vectors" chart on the Model Dashboard.
+    """
+    if not app.state.model_loaded:
+        return _model_unavailable()
+    return app.state.dashboard_data["support_vectors"]
 
 
 @app.get("/api/model-file")
