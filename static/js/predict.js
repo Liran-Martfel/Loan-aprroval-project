@@ -250,8 +250,13 @@
     }
     headlineEl.textContent = result.approved ? AppI18n.t('result.approved') : AppI18n.t('result.denied');
     headlineEl.className = `result-headline ${result.approved ? 'approved' : 'denied'}`;
-    confidenceEl.innerHTML = `${AppI18n.t('result.confidence')}: <span class="ltr-num">${result.confidence.toFixed(1)}%</span>`;
-    whyToggle.classList.remove('hidden');
+    const usingCustom = result.model === 'custom';
+    confidenceEl.innerHTML = `${AppI18n.t('result.confidence')}: <span class="ltr-num">${result.confidence.toFixed(1)}%</span>`
+      + (usingCustom ? ` <span class="custom-model-badge">${AppI18n.t('custom.resultBadge')}</span>` : '');
+    // /api/explain only ever explains against the real deployed model's SHAP
+    // background - showing "Why?" for a custom-model prediction would be
+    // explaining the wrong model, so it's hidden instead of being wrong.
+    whyToggle.classList.toggle('hidden', usingCustom);
   }
 
   function renderResult(result) {
@@ -321,13 +326,18 @@
     }
     try {
       const payload = collectPayload();
+      const headers = { 'Content-Type': 'application/json' };
+      if (window.AppCustomModel && window.AppCustomModel.isActive()) {
+        headers['X-Session-Token'] = window.AppCustomModel.getToken();
+      }
       const res = await fetch('/api/predict', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
       const result = await res.json();
       lastPayload = result.valid ? payload : null;
+      if (window.AppCustomModel) window.AppCustomModel.reportModelUsed(result.model);
       renderResult(result);
     } catch (err) {
       console.error(err);

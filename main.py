@@ -15,12 +15,13 @@ import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import BackgroundTasks, FastAPI, Header, Request
+from fastapi import BackgroundTasks, FastAPI, File, Header, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+import custom_model
 import request_log
 from inference import encode_application, evaluate_application, explain_prediction, load_artifacts, validate_application
 
@@ -29,7 +30,7 @@ ADMIN_LOG_KEY = os.environ.get("ADMIN_LOG_KEY")
 # Bumped by hand whenever a change worth tracking goes live - shown in the
 # site's header and in the README, so it's obvious which version is
 # actually deployed at any given time.
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.2.0"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -226,8 +227,38 @@ def download_model_file():
     )
 
 
+@app.post("/api/custom-model/upload")
+async def upload_custom_model(request: Request, file: UploadFile = File(...)):
+    """
+    "Try Your Own Data": trains a private model on the visitor's own CSV
+    upload for their session only - see custom_model.py for the validation
+    rules, size/row limits, and privacy guarantees (nothing is written to
+    disk, nothing touches the real deployed model).
+    """
+    # Reject an oversized upload by its declared Content-Length before ever
+    # reading it - otherwise a huge file gets fully buffered into memory/disk
+    # before the size check in custom_model.validate_csv ever gets a chance to run.
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > custom_model.MAX_FILE_BYTES:
+        return JSONResponse(
+            status_code=400,
+            content={"valid": False, "errors": [
+                f"File is too large - max is {custom_model.MAX_FILE_BYTES // 1024 // 1024} MB.",
+            ]},
+        )
+    raw_bytes = await file.read(custom_model.MAX_FILE_BYTES + 1)
+    result, errors = custom_model.create_session(raw_bytes)
+    if errors:
+        return JSONResponse(status_code=400, content={"valid": False, "errors": errors})
+    result["valid"] = True
+    return result
+
+
 @app.post("/api/predict")
-def predict(applicant: ApplicantInput, request: Request, background_tasks: BackgroundTasks):
+def predict(
+    applicant: ApplicantInput, request: Request, background_tasks: BackgroundTasks,
+    x_session_token: str = Header(default=None),
+):
     """
     Runs one applicant's data through the trained pipeline and returns
     whether the loan would be approved and a confidence score. Deliberately
@@ -236,6 +267,11 @@ def predict(applicant: ApplicantInput, request: Request, background_tasks: Backg
     "Check Loan Eligibility" button feel broken. The frontend fetches the
     explanation separately, lazily, only if the user opens "Why?".
 
+    If X-Session-Token names a live "Try Your Own Data" session (see
+    custom_model.py), that visitor's own private model is used instead of
+    the real deployed one, and the submission is never persisted to the
+    prediction log - it isn't a real applicant.
+
     The submission log write is a BackgroundTask - it runs after the
     response is already on its way back, so a slow database round-trip
     never adds to how long the button feels like it's thinking.
@@ -243,19 +279,24 @@ def predict(applicant: ApplicantInput, request: Request, background_tasks: Backg
     if not app.state.model_loaded:
         return _model_unavailable()
     raw_applicant = applicant.model_dump()
+    custom_pipeline = custom_model.get_pipeline(x_session_token)
+    pipeline = custom_pipeline if custom_pipeline is not None else app.state.pipeline
     try:
         result = evaluate_application(
-            app.state.pipeline, raw_applicant, app.state.background,
+            pipeline, raw_applicant, app.state.background,
             app.state.report, explain=False,
         )
-        background_tasks.add_task(request_log.log_prediction, raw_applicant, result)
+        result["model"] = "custom" if custom_pipeline is not None else "real"
+        if custom_pipeline is None:
+            background_tasks.add_task(request_log.log_prediction, raw_applicant, result)
         return result
     except Exception as exc:
         logger.exception("Prediction failed for input: %s", raw_applicant)
         request.state.error_message = str(exc)
-        background_tasks.add_task(
-            request_log.log_prediction, raw_applicant, {"valid": False, "errors": ["Internal server error"]},
-        )
+        if custom_pipeline is None:
+            background_tasks.add_task(
+                request_log.log_prediction, raw_applicant, {"valid": False, "errors": ["Internal server error"]},
+            )
         return JSONResponse(
             status_code=500,
             content={"valid": False, "errors": ["Internal server error"]},

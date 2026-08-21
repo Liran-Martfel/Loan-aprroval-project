@@ -374,6 +374,53 @@ html[dir="rtl"] body { font-family: 'Assistant', 'Poppins', sans-serif; }
 
 .form-disclaimer { margin: 10px 0 0; font-size: 0.72rem; color: var(--text-muted); text-align: center; }
 
+/* ---------- Try Your Own Data ---------- */
+.custom-columns-hint { font-size: 0.78rem; color: var(--text-muted); background: var(--accent-soft); padding: 8px 12px; border-radius: var(--radius-md); }
+.custom-upload-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.custom-upload-row input[type="file"] {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--input-bg);
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+.cta-button-secondary {
+  padding: 10px 20px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cta-button-secondary:disabled { opacity: 0.6; cursor: default; }
+.custom-upload-error { color: var(--danger); font-size: 0.82rem; margin: 10px 0 0; }
+
+.custom-model-result { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--glass-border); }
+.custom-compare-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.custom-compare-item {
+  flex: 1;
+  min-width: 130px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  text-align: center;
+}
+.custom-compare-label { display: block; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 4px; }
+.custom-compare-value { font-size: 1.2rem; font-weight: 700; color: var(--accent-dark); }
+.custom-rows-note { font-size: 0.78rem; color: var(--text-muted); margin: 10px 0 0; }
+.custom-toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 0.9rem; cursor: pointer; }
+.custom-toggle-row input { width: 17px; height: 17px; cursor: pointer; }
+.custom-model-badge { color: var(--accent-dark); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+
 /* ---------- Result panel ---------- */
 .result-panel { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--glass-border); }
 .result-panel.hidden, .hidden { display: none !important; }

@@ -73,6 +73,7 @@
       { method: 'GET', path: '/api/model-info', descKey: 'dashboard.api.info' },
       { method: 'GET', path: '/api/dashboard-data', descKey: 'dashboard.api.dashboard' },
       { method: 'GET', path: '/api/model/support_vectors/', descKey: 'dashboard.api.supportVectors' },
+      { method: 'POST', path: '/api/custom-model/upload', descKey: 'dashboard.api.customUpload' },
       { method: 'POST', path: '/api/predict', descKey: 'dashboard.api.predict' },
       { method: 'POST', path: '/api/explain', descKey: 'dashboard.api.explain' },
       { method: 'GET', path: '/api/model-file', descKey: 'dashboard.api.file' },

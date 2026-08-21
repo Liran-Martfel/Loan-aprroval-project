@@ -158,6 +158,36 @@
         <p class="lw-caption" data-i18n="lookWithin.caption">Your details are scaled, then compared against thousands of past applicants inside the model's kernel space to reach a decision.</p>
       </div>
      </div>
+
+     <div class="glass-card">
+       <h2 data-i18n="custom.title">Try Your Own Data</h2>
+       <p class="subtitle" data-i18n="custom.subtitle">Upload a CSV shaped like the real training data and get a private model trained just for you - nothing is saved, and it never touches the real deployed model.</p>
+       <p class="custom-columns-hint" data-i18n="custom.columnsHint">Required columns: person_income, person_emp_exp, loan_amnt, loan_int_rate, loan_percent_income, credit_score, previous_loan_defaults_on_file, loan_status</p>
+
+       <div class="custom-upload-row">
+         <input type="file" id="custom-file-input" accept=".csv">
+         <button type="button" id="custom-upload-btn" class="cta-button-secondary" data-i18n="custom.uploadButton">Upload &amp; Train</button>
+       </div>
+       <p id="custom-upload-error" class="custom-upload-error"></p>
+
+       <div id="custom-model-result" class="custom-model-result hidden">
+         <div class="custom-compare-row">
+           <div class="custom-compare-item">
+             <span class="custom-compare-label" data-i18n="custom.yourModel">Your Model</span>
+             <span id="custom-accuracy" class="custom-compare-value"></span>
+           </div>
+           <div class="custom-compare-item">
+             <span class="custom-compare-label" data-i18n="custom.realModel">Real Model</span>
+             <span id="custom-real-accuracy" class="custom-compare-value"></span>
+           </div>
+         </div>
+         <p id="custom-rows-note" class="custom-rows-note"></p>
+         <label class="custom-toggle-row">
+           <input type="checkbox" id="custom-use-toggle">
+           <span data-i18n="custom.useToggle">Use my model for "Check Loan Eligibility"</span>
+         </label>
+       </div>
+     </div>
     </section>
 
     <!-- ===================== Model Data window ===================== -->
@@ -288,6 +318,7 @@
 
 <script src="/static/js/i18n.js?v={{ static_version }}"></script>
 <script src="/static/js/app.js?v={{ static_version }}"></script>
+<script src="/static/js/custom_model.js?v={{ static_version }}"></script>
 <script src="/static/js/predict.js?v={{ static_version }}"></script>
 <script src="/static/js/model_data.js?v={{ static_version }}"></script>
 <script src="/static/js/dashboard.js?v={{ static_version }}"></script>
