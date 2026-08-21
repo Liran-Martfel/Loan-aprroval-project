@@ -107,7 +107,7 @@
       const minus = fieldDiv.querySelector('.step-minus');
       const plus = fieldDiv.querySelector('.step-plus');
       const step = Number(input.dataset.step || '1');
-      const refresh = () => { validateField(fieldDiv); updateRatioDisplay(); updateLoanAmntBounds(); };
+      const refresh = () => { validateField(fieldDiv); updateRatioDisplay(); updateLoanAmntBounds(); updateIncomeHint(); };
       minus && minus.addEventListener('click', () => {
         input.value = (Number(input.value || 0) - step).toFixed(2).replace(/\.00$/, '');
         refresh();
@@ -126,10 +126,29 @@
     return info.valid_ranges[fieldName];
   }
 
+  // Income isn't bounded by the training data's observed range (see
+  // inference.py) - shows a heads-up past that range instead of blocking.
+  function updateIncomeHint() {
+    const fieldDiv = document.querySelector('.field[data-field="person_income"]');
+    const input = numberInput('person_income');
+    const hint = fieldDiv?.querySelector('.field-hint');
+    if (!fieldDiv || !input) return;
+    fieldDiv.classList.remove('invalid');
+    const range = getRange('person_income');
+    const value = Number(input.value);
+    if (range && hint) {
+      const [low, high] = range;
+      hint.innerHTML = (value < low || value > high)
+        ? `${AppI18n.t('field.person_income_extrapolation_hint')} <span class="ltr-num">$${low.toLocaleString()} - $${high.toLocaleString()}.</span>`
+        : '';
+    }
+  }
+
   function validateField(fieldDiv) {
     const fieldName = fieldDiv.dataset.field;
-    // loan_percent_income and loan_amnt have their own dynamic (income-relative) checks
-    if (!fieldName || fieldName === 'loan_percent_income' || fieldName === 'loan_amnt') return true;
+    // loan_percent_income, loan_amnt, and person_income have their own dynamic
+    // (non-blocking) checks instead of the generic hard range block below.
+    if (!fieldName || fieldName === 'loan_percent_income' || fieldName === 'loan_amnt' || fieldName === 'person_income') return true;
     const input = fieldDiv.querySelector('input[type="number"]');
     const hint = fieldDiv.querySelector('.field-hint');
     const range = getRange(fieldName);
@@ -156,6 +175,7 @@
     });
     updateRatioDisplay();
     updateLoanAmntBounds();
+    updateIncomeHint();
     if (document.querySelector('.field[data-field="loan_percent_income"]')?.classList.contains('invalid')) {
       allValid = false;
     }

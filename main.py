@@ -29,7 +29,7 @@ ADMIN_LOG_KEY = os.environ.get("ADMIN_LOG_KEY")
 # Bumped by hand whenever a change worth tracking goes live - shown in the
 # site's header and in the README, so it's obvious which version is
 # actually deployed at any given time.
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 
 logging.basicConfig(
     level=logging.INFO,

@@ -41,7 +41,14 @@ def validate_application(raw_applicant, report):
     errors = []
     for feature, bounds in report['valid_ranges'].items():
         low, high = bounds
-        if feature == 'loan_amnt':
+        if feature == 'person_income':
+            # A real applicant's income isn't bounded by whatever happened to
+            # appear in the training CSV - only guard against a nonsensical
+            # (non-positive) value. Predictions on incomes outside the
+            # training range are extrapolation, flagged to the user in the
+            # UI rather than blocked here.
+            low, high = 0, float('inf')
+        elif feature == 'loan_amnt':
             income = raw_applicant.get('person_income')
             if isinstance(income, (int, float)) and income > 0:
                 high = income * LOAN_TO_INCOME_CAP
