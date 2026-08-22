@@ -48,7 +48,7 @@
     ],
     "credit_score": [
       300,
-      850
+      804.0
     ],
     "previous_loan_defaults_on_file": [
       0.0,
@@ -2597,5 +2597,5 @@
   },
   "training_data_hash": "5d1b0d9e9f35e8e38007e382361884564222b62385101ff7938b60a12cc28a94",
   "n_training_rows": 9600,
-  "timestamp": "2026-08-22T13:41:46.774200"
+  "timestamp": "2026-08-22T14:32:48.780041"
 }
