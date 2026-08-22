@@ -30,7 +30,7 @@ LABEL_COLUMN = 'loan_status'
 REQUIRED_COLUMNS = REQUIRED_FEATURES + [LABEL_COLUMN]
 
 MIN_ROWS = 50
-MAX_ROWS = 20_000
+MAX_ROWS = 2_800  # keeps the CalibratedClassifierCV(SVC(...)) fit well under Render's proxy timeout
 MIN_ROWS_PER_CLASS = 10  # below this, the train/test split and calibration folds become unstable
 MAX_FILE_BYTES = 5 * 1024 * 1024
 SESSION_TTL_SECONDS = 2 * 60 * 60
