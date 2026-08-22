@@ -11,13 +11,14 @@ main.py, inference.py, request_log.py   - קוד השרת (FastAPI)
 templates/, static/                     - HTML/CSS/JS של האתר
 notebooks/model_training.ipynb          - ה-notebook שמאמן את המודל הפרוס
 notebooks/exploration.ipynb             - notebook לימוד/חקירה (כמה גישות שנוסו לפני הגישה הסופית)
-data/Project_DB_loan_approval.csv       - דאטה-סט האימון
+data/project_loan_approval_DB_V2.csv     - דאטה-סט האימון הפעיל (V2, 12,000 שורות)
+data/Project_DB_loan_approval.csv       - הדאטה-סט המקורי (45,000 שורות) - נשמר להשוואה/rollback, לא בשימוש לאימון
 model_artifacts/                        - כל מה שהאימון מפיק: קובץ המודל, model_report.json, background_sample.pkl, dashboard_data.json, project_all_ways.pkl
 build_dashboard_data.py                 - סקריפט שמחשב את נתוני "לוח בקרת המודל" מתוך model_artifacts/
 ```
 
 ## 📊 ביצועי המודל והנתונים
-- **דאטה-סט:** `data/Project_DB_loan_approval.csv` (12,000 שורות, סינון גילאי 18+) - גרסה שנייה ונקייה יותר של הדאטה-סט, ללא ערכי קיצון (כמו גיל 144 או הכנסה של מיליוני דולרים) שהיו בגרסה הקודמת (45,000 שורות).
+- **דאטה-סט:** `data/project_loan_approval_DB_V2.csv` (12,000 שורות, סינון גילאי 18+) - גרסה שנייה ונקייה יותר של הדאטה-סט, ללא ערכי קיצון (כמו גיל 144 או הכנסה של מיליוני דולרים) שהיו בגרסה המקורית (`data/Project_DB_loan_approval.csv`, 45,000 שורות, נשארת בריפו לצורך היסטוריה/rollback בלבד).
 - **פיצ'רים נבחרים:** הכנסה, סכום הלוואה, ריבית, אחוז מתוך הכנסה, דירוג אשראי והיסטוריית מחדלי הלוואה קודמים (`previous_loan_defaults_on_file`).
 - **אלגוריתם:** `SVC(kernel='rbf', C=0.1)` שנבחר באמצעות Cross-Validation.
 - **תוצאות אימון (Test Set):**

@@ -25,7 +25,7 @@ from matplotlib.colors import ListedColormap
 from inference import CATEGORICAL_MAPS
 
 PKL_PATH = 'model_artifacts/Full project.pkl'
-CSV_PATH = 'data/Project_DB_loan_approval.csv'
+CSV_PATH = 'data/project_loan_approval_DB_V2.csv'
 REPORT_PATH = 'model_artifacts/model_report.json'
 OUT_PATH = 'model_artifacts/dashboard_data.json'
 BOUNDARY_IMG_PATH = 'static/img/decision_boundary.png'
