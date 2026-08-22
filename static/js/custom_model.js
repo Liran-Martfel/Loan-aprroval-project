@@ -26,12 +26,23 @@
     return Boolean(getToken()) && Boolean(useToggle && useToggle.checked);
   }
 
+  function getMeta() {
+    const raw = sessionStorage.getItem(META_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
   function clearSession() {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(META_KEY);
     sessionStorage.removeItem(TOGGLE_KEY);
     if (useToggle) useToggle.checked = false;
     if (resultEl) resultEl.classList.add('hidden');
+    document.dispatchEvent(new CustomEvent('app:custom-model-cleared'));
   }
 
   // Called by predict.js after every prediction. If the toggle was on but
@@ -46,7 +57,7 @@
     }
   }
 
-  window.AppCustomModel = { isActive, getToken, reportModelUsed };
+  window.AppCustomModel = { isActive, getToken, reportModelUsed, getMeta };
 
   function renderRealAccuracy() {
     const info = window.AppState.modelInfo;
@@ -63,6 +74,7 @@
     rowsNoteEl.innerHTML = AppI18n.tFormat('custom.rowsNote', {
       rows: `<span class="ltr-num">${meta.n_rows.toLocaleString()}</span>`,
     });
+    document.dispatchEvent(new CustomEvent('app:custom-model-ready', { detail: meta }));
   }
 
   function restoreFromStorage() {
@@ -100,6 +112,26 @@
     throw new Error(AppI18n.t('custom.trainingTimeout'));
   }
 
+  let trainingTimerId = null;
+
+  // Training runs server-side and typically takes a few seconds to a couple
+  // of minutes depending on file size - without this, the button just says
+  // "Training..." the whole time with no sense of progress.
+  function startTrainingTimer() {
+    const startedAt = Date.now();
+    trainingTimerId = setInterval(() => {
+      const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+      uploadBtn.textContent = AppI18n.tFormat('custom.uploadingElapsed', { seconds: elapsedSeconds });
+    }, 1000);
+  }
+
+  function stopTrainingTimer() {
+    if (trainingTimerId) {
+      clearInterval(trainingTimerId);
+      trainingTimerId = null;
+    }
+  }
+
   async function upload() {
     const file = fileInput.files[0];
     errorEl.textContent = '';
@@ -110,6 +142,7 @@
     uploadBtn.disabled = true;
     const originalLabel = uploadBtn.textContent;
     uploadBtn.textContent = AppI18n.t('custom.uploading');
+    startTrainingTimer();
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -121,7 +154,11 @@
       }
       const finalData = await pollUntilReady(data.token);
       sessionStorage.setItem(TOKEN_KEY, data.token);
-      sessionStorage.setItem(META_KEY, JSON.stringify({ accuracy: finalData.accuracy, n_rows: finalData.n_rows }));
+      sessionStorage.setItem(META_KEY, JSON.stringify({
+        accuracy: finalData.accuracy,
+        n_rows: finalData.n_rows,
+        confusion_matrix: finalData.confusion_matrix,
+      }));
       sessionStorage.setItem(TOGGLE_KEY, '1');
       showResult(finalData);
       useToggle.checked = true;
@@ -129,6 +166,7 @@
       console.error(err);
       errorEl.textContent = err.message || AppI18n.t('custom.uploadFailed');
     } finally {
+      stopTrainingTimer();
       uploadBtn.disabled = false;
       uploadBtn.textContent = originalLabel;
     }

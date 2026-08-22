@@ -174,6 +174,38 @@
     });
   }
 
+  // Shown only while a "Try Your Own Data" session is ready, so a visitor
+  // can see their own upload's basic stats reflected here too, clearly
+  // separated from the real deployed model's section right below it.
+  function renderCustomData() {
+    const card = document.getElementById('dashboard-custom-data-card');
+    const label = document.getElementById('dashboard-original-label');
+    if (!card || !label) return;
+    const meta = window.AppCustomModel && window.AppCustomModel.getMeta();
+    if (!meta) {
+      card.classList.add('hidden');
+      label.classList.add('hidden');
+      return;
+    }
+    card.classList.remove('hidden');
+    label.classList.remove('hidden');
+    const row = document.getElementById('dashboard-custom-data-stat-cards');
+    row.innerHTML = '';
+    row.appendChild(statCard('stat.accuracy', `${(meta.accuracy * 100).toFixed(1)}%`));
+    row.appendChild(statCard('stat.rows', meta.n_rows.toLocaleString()));
+    if (meta.confusion_matrix) {
+      const cm = meta.confusion_matrix;
+      renderTable(
+        document.getElementById('dashboard-custom-data-confusion-table'),
+        ['', 'Predicted: No', 'Predicted: Yes'],
+        [
+          ['Actual: No', `<span class="cm-correct">${cm[0][0]}</span>`, cm[0][1]],
+          ['Actual: Yes', cm[1][0], `<span class="cm-correct">${cm[1][1]}</span>`],
+        ]
+      );
+    }
+  }
+
   function renderAll() {
     const info = window.AppState.modelInfo;
     const dash = window.AppState.dashboardData;
@@ -188,6 +220,7 @@
     renderBoundaryCaveat(dash.decision_boundary);
     renderSupportVectorsCaveat(dash.support_vectors);
     renderMarginChart(dash.margin_histogram);
+    renderCustomData();
   }
 
   async function loadDashboardData() {
@@ -203,5 +236,7 @@
 
   document.addEventListener('app:model-info-loaded', renderAll);
   document.addEventListener('app:language-changed', renderAll);
+  document.addEventListener('app:custom-model-ready', renderCustomData);
+  document.addEventListener('app:custom-model-cleared', renderCustomData);
   document.addEventListener('DOMContentLoaded', loadDashboardData);
 })();

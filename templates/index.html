@@ -192,6 +192,13 @@
 
     <!-- ===================== Model Data window ===================== -->
     <section id="window-model-data" class="window">
+      <div id="custom-data-card" class="glass-card hidden">
+        <h2 data-i18n="custom.yourDataTitle">Your Uploaded Data</h2>
+        <div class="stat-row" id="custom-data-stat-cards"></div>
+        <div class="table-wrap"><table id="custom-data-confusion-table"></table></div>
+      </div>
+      <h3 id="model-data-original-label" class="section-original-label hidden" data-i18n="custom.originalDataLabel">Real Model (Original)</h3>
+
       <div class="stat-row" id="stat-cards"></div>
 
       <div class="glass-card">
@@ -219,6 +226,13 @@
 
     <!-- ===================== Model Dashboard window ===================== -->
     <section id="window-dashboard" class="window">
+      <div id="dashboard-custom-data-card" class="glass-card hidden">
+        <h2 data-i18n="custom.yourDataTitle">Your Uploaded Data</h2>
+        <div class="stat-row" id="dashboard-custom-data-stat-cards"></div>
+        <div class="table-wrap"><table id="dashboard-custom-data-confusion-table"></table></div>
+      </div>
+      <h3 id="dashboard-original-label" class="section-original-label hidden" data-i18n="custom.originalDataLabel">Real Model (Original)</h3>
+
       <div class="glass-card dashboard-hero">
         <div class="dashboard-hero-shape"></div>
         <div class="dashboard-hero-text">
@@ -296,19 +310,23 @@
           <h2 data-i18n="logs.title">Request &amp; Error History</h2>
           <div>
             <button type="button" id="logs-refresh-btn" class="cta-link" data-i18n="logs.refresh">Refresh</button>
+            <button type="button" id="logs-download-btn" class="cta-link" data-i18n="logs.downloadAll">Download All</button>
             <button type="button" id="logs-lock-btn" class="cta-link" data-i18n="logs.lock">Lock</button>
           </div>
         </div>
-        <p class="subtitle" data-i18n="logs.subtitle">The most recent 300 requests and errors handled by the live server, stored permanently so they survive restarts and redeploys.</p>
+        <p class="subtitle" data-i18n="logs.subtitle">The most recent 10 requests and errors handled by the live server - download everything below to see the full history.</p>
         <div class="table-wrap"><table id="logs-table" dir="ltr"></table></div>
       </div>
 
       <div id="predictions-content" class="glass-card hidden">
         <div class="logs-header">
           <h2 data-i18n="logs.predictionsTitle">Eligibility Check Submissions</h2>
-          <button type="button" id="predictions-refresh-btn" class="cta-link" data-i18n="logs.refresh">Refresh</button>
+          <div>
+            <button type="button" id="predictions-refresh-btn" class="cta-link" data-i18n="logs.refresh">Refresh</button>
+            <button type="button" id="predictions-download-btn" class="cta-link" data-i18n="logs.downloadAll">Download All</button>
+          </div>
         </div>
-        <p class="subtitle" data-i18n="logs.predictionsSubtitle">The most recent 300 "Check Loan Eligibility" submissions, including the values entered and the outcome.</p>
+        <p class="subtitle" data-i18n="logs.predictionsSubtitle">The most recent 10 "Check Loan Eligibility" submissions, including the values entered and the outcome - download everything below to see the full history.</p>
         <div class="table-wrap"><table id="predictions-table" dir="ltr"></table></div>
       </div>
     </section>

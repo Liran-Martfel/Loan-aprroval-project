@@ -7,6 +7,8 @@ two HTML pages. All prediction logic is delegated to inference.py - this
 file only wires it up to HTTP.
 """
 import asyncio
+import csv
+import io
 import json
 import logging
 import os
@@ -16,7 +18,7 @@ from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import BackgroundTasks, FastAPI, File, Header, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -30,7 +32,7 @@ ADMIN_LOG_KEY = os.environ.get("ADMIN_LOG_KEY")
 # Bumped by hand whenever a change worth tracking goes live - shown in the
 # site's header and in the README, so it's obvious which version is
 # actually deployed at any given time.
-APP_VERSION = "1.3.1"
+APP_VERSION = "1.4.0"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -135,24 +137,61 @@ async def log_requests(request: Request, call_next):
     return response
 
 
+def _rows_to_csv(rows):
+    """Renders a list of same-shaped dicts as CSV text, header from the first row's keys."""
+    if not rows:
+        return ""
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=list(rows[0].keys()))
+    writer.writeheader()
+    writer.writerows(rows)
+    return buffer.getvalue()
+
+
+def _csv_download(rows, filename):
+    return Response(
+        content=_rows_to_csv(rows),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.get("/api/logs")
-def get_logs(x_admin_key: str = Header(default=None)):
+def get_logs(limit: int = 10, x_admin_key: str = Header(default=None)):
     """
-    Recent request/error history for the in-app Logs page. Requires the
-    admin key (set via the ADMIN_LOG_KEY env var) as an X-Admin-Key header -
-    without it, or if it's wrong, this refuses to return anything.
+    Recent request/error history for the in-app Logs page (default: last 10,
+    so the table doesn't visually shift every time a new request comes in -
+    see /api/logs/export for the full history). Requires the admin key (set
+    via the ADMIN_LOG_KEY env var) as an X-Admin-Key header - without it, or
+    if it's wrong, this refuses to return anything.
     """
     if not ADMIN_LOG_KEY or x_admin_key != ADMIN_LOG_KEY:
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-    return {"events": request_log.get_recent()}
+    return {"events": request_log.get_recent(limit=limit)}
+
+
+@app.get("/api/logs/export")
+def export_logs(x_admin_key: str = Header(default=None)):
+    """Every request/error ever logged, as a downloadable CSV - same admin gate as /api/logs."""
+    if not ADMIN_LOG_KEY or x_admin_key != ADMIN_LOG_KEY:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    return _csv_download(request_log.get_all(), "request_log.csv")
 
 
 @app.get("/api/logs/predictions")
-def get_prediction_logs(x_admin_key: str = Header(default=None)):
+def get_prediction_logs(limit: int = 10, x_admin_key: str = Header(default=None)):
     """Recent 'Check Loan Eligibility' submissions (inputs + outcome), same admin gate as /api/logs."""
     if not ADMIN_LOG_KEY or x_admin_key != ADMIN_LOG_KEY:
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
-    return {"predictions": request_log.get_recent_predictions()}
+    return {"predictions": request_log.get_recent_predictions(limit=limit)}
+
+
+@app.get("/api/logs/predictions/export")
+def export_prediction_logs(x_admin_key: str = Header(default=None)):
+    """Every 'Check Loan Eligibility' submission ever logged, as a downloadable CSV."""
+    if not ADMIN_LOG_KEY or x_admin_key != ADMIN_LOG_KEY:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    return _csv_download(request_log.get_all_predictions(), "prediction_log.csv")
 
 
 def _model_unavailable():
@@ -293,8 +332,9 @@ def predict(
 
     If X-Session-Token names a live "Try Your Own Data" session (see
     custom_model.py), that visitor's own private model is used instead of
-    the real deployed one, and the submission is never persisted to the
-    prediction log - it isn't a real applicant.
+    the real deployed one. The submission is still logged (tagged
+    model_used="custom") so it shows up in the Logs page - clearly marked
+    apart from real applicants, not mixed in unlabeled.
 
     The submission log write is a BackgroundTask - it runs after the
     response is already on its way back, so a slow database round-trip
@@ -305,22 +345,22 @@ def predict(
     raw_applicant = applicant.model_dump()
     custom_pipeline = custom_model.get_pipeline(x_session_token)
     pipeline = custom_pipeline if custom_pipeline is not None else app.state.pipeline
+    model_used = "custom" if custom_pipeline is not None else "real"
     try:
         result = evaluate_application(
             pipeline, raw_applicant, app.state.background,
             app.state.report, explain=False,
         )
-        result["model"] = "custom" if custom_pipeline is not None else "real"
-        if custom_pipeline is None:
-            background_tasks.add_task(request_log.log_prediction, raw_applicant, result)
+        result["model"] = model_used
+        background_tasks.add_task(request_log.log_prediction, raw_applicant, result, model_used)
         return result
     except Exception as exc:
         logger.exception("Prediction failed for input: %s", raw_applicant)
         request.state.error_message = str(exc)
-        if custom_pipeline is None:
-            background_tasks.add_task(
-                request_log.log_prediction, raw_applicant, {"valid": False, "errors": ["Internal server error"]},
-            )
+        background_tasks.add_task(
+            request_log.log_prediction, raw_applicant,
+            {"valid": False, "errors": ["Internal server error"]}, model_used,
+        )
         return JSONResponse(
             status_code=500,
             content={"valid": False, "errors": ["Internal server error"]},
@@ -328,10 +368,16 @@ def predict(
 
 
 @app.post("/api/explain")
-def explain(applicant: ApplicantInput, request: Request):
+def explain(applicant: ApplicantInput, request: Request, x_session_token: str = Header(default=None)):
     """
     Computes the (slow) SHAP explanation for one applicant, fetched lazily
     by the frontend only when the user opens the "Why?" panel.
+
+    If X-Session-Token names a live "Try Your Own Data" session, that
+    visitor's own private model and its own background sample are used
+    instead of the real deployed ones - explaining a custom prediction
+    against the real model's SHAP background would measure feature impact
+    against the wrong distribution entirely.
     """
     if not app.state.model_loaded:
         return _model_unavailable()
@@ -339,9 +385,12 @@ def explain(applicant: ApplicantInput, request: Request):
     errors = validate_application(raw_applicant, app.state.report)
     if errors:
         return JSONResponse(status_code=400, content={"valid": False, "errors": errors})
+    custom_pipeline = custom_model.get_pipeline(x_session_token)
+    pipeline = custom_pipeline if custom_pipeline is not None else app.state.pipeline
+    background = custom_model.get_background(x_session_token) if custom_pipeline is not None else app.state.background
     try:
         x_row = encode_application(raw_applicant, app.state.report["features"])
-        contributions = explain_prediction(app.state.pipeline, x_row, app.state.background)
+        contributions = explain_prediction(pipeline, x_row, background)
         return {"valid": True, "feature_contributions": contributions}
     except Exception as exc:
         logger.exception("Explanation failed for input: %s", raw_applicant)

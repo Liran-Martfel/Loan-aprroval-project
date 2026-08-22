@@ -21,6 +21,8 @@ from sklearn.svm import SVC
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 from inference import CATEGORICAL_MAPS
 
@@ -120,7 +122,21 @@ ax.set_ylabel('Principal Component 2', color='#2e2540')
 ax.tick_params(colors='#6b6480')
 for spine in ax.spines.values():
     spine.set_color('#c9c2dd')
-legend = ax.legend(loc='upper right', frameon=True, framealpha=0.85, fontsize=9)
+
+# The scatter calls above only label the three point series - the shaded
+# regions and the three contour lines (margin/boundary/margin) are drawn
+# without a `label=`, so they'd otherwise appear on the plot unexplained.
+# Adding proxy handles for them here is what a legend.get_legend_handles_labels()
+# call alone would miss.
+scatter_handles, _ = ax.get_legend_handles_labels()
+boundary_handles = [
+    Line2D([0], [0], color='#3730a3', linewidth=2, linestyle='solid', label='Decision Boundary'),
+    Line2D([0], [0], color='#6b6480', linewidth=1.3, linestyle='dashed', label='Margin (±1)'),
+    Patch(facecolor='#d7f0e0', edgecolor='none', alpha=0.75, label='Predicted Region: Approved'),
+    Patch(facecolor='#fbdfe2', edgecolor='none', alpha=0.75, label='Predicted Region: Not Approved'),
+]
+legend = ax.legend(handles=scatter_handles + boundary_handles, loc='upper right',
+                    frameon=True, framealpha=0.85, fontsize=9)
 legend.get_frame().set_facecolor('#ffffff')
 legend.get_frame().set_edgecolor('#c9c2dd')
 fig.tight_layout()

@@ -60,7 +60,7 @@
     const columns = [
       'logs.colTime', 'field.person_income', 'field.person_emp_exp', 'field.loan_amnt',
       'field.loan_int_rate', 'field.loan_percent_income', 'field.credit_score',
-      'field.previous_loan_defaults_on_file', 'logs.colOutcome', 'logs.colConfidence',
+      'field.previous_loan_defaults_on_file', 'logs.colOutcome', 'logs.colConfidence', 'logs.colSource',
     ].map((k) => AppI18n.t(k));
     if (!predictions.length) {
       table.innerHTML = `<thead><tr>${columns.map((c) => `<th>${c}</th>`).join('')}</tr></thead>
@@ -73,6 +73,7 @@
         : p.approved
           ? `<span class="log-status-ok">${AppI18n.t('result.approved')}</span>`
           : `<span class="log-status-error">${AppI18n.t('result.denied')}</span>`;
+      const source = p.model_used === 'custom' ? AppI18n.t('logs.sourceCustom') : AppI18n.t('logs.sourceOriginal');
       return `
         <tr>
           <td>${new Date(p.timestamp).toLocaleString()}</td>
@@ -85,6 +86,7 @@
           <td>${p.previous_loan_defaults_on_file === 'Yes' ? AppI18n.t('option.yes') : p.previous_loan_defaults_on_file === 'No' ? AppI18n.t('option.no') : (p.previous_loan_defaults_on_file ?? '')}</td>
           <td>${outcome}</td>
           <td>${p.confidence != null ? `${p.confidence}%` : ''}</td>
+          <td>${source}</td>
         </tr>
       `;
     }).join('');
@@ -96,8 +98,8 @@
     errorEl.classList.add('hidden');
     try {
       const [logsRes, predictionsRes] = await Promise.all([
-        fetch('/api/logs', { headers: { 'X-Admin-Key': key } }),
-        fetch('/api/logs/predictions', { headers: { 'X-Admin-Key': key } }),
+        fetch('/api/logs?limit=10', { headers: { 'X-Admin-Key': key } }),
+        fetch('/api/logs/predictions?limit=10', { headers: { 'X-Admin-Key': key } }),
       ]);
       if (logsRes.status === 401 || predictionsRes.status === 401) {
         sessionStorage.removeItem(STORAGE_KEY);
@@ -135,6 +137,33 @@
   document.getElementById('predictions-refresh-btn').addEventListener('click', () => {
     const key = getStoredKey();
     if (key) fetchLogs(key);
+  });
+
+  async function downloadCsv(exportPath, filename) {
+    const key = getStoredKey();
+    if (!key) return;
+    const res = await fetch(exportPath, { headers: { 'X-Admin-Key': key } });
+    if (!res.ok) {
+      console.error('Export failed', res.status);
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById('logs-download-btn').addEventListener('click', () => {
+    downloadCsv('/api/logs/export', 'request_log.csv');
+  });
+
+  document.getElementById('predictions-download-btn').addEventListener('click', () => {
+    downloadCsv('/api/logs/predictions/export', 'prediction_log.csv');
   });
 
   document.getElementById('logs-lock-btn').addEventListener('click', () => {

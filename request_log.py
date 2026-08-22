@@ -64,8 +64,15 @@ def init_db():
                         valid BOOLEAN NOT NULL,
                         approved BOOLEAN,
                         confidence DOUBLE PRECISION,
-                        errors TEXT
+                        errors TEXT,
+                        model_used TEXT NOT NULL DEFAULT 'real'
                     )
+                """)
+                # Additive migration for a table created before model_used
+                # existed - safe to run on every startup.
+                cur.execute("""
+                    ALTER TABLE prediction_log
+                    ADD COLUMN IF NOT EXISTS model_used TEXT NOT NULL DEFAULT 'real'
                 """)
             conn.commit()
     except Exception:
@@ -88,10 +95,12 @@ def log_request(method, path, status_code, duration_ms, error_message=None):
         logger.exception("Failed to write to the persistent request log")
 
 
-def log_prediction(raw_applicant, result):
+def log_prediction(raw_applicant, result, model_used="real"):
     """
     Records one "Check Loan Eligibility" submission: the raw form values
     plus the outcome (or the validation errors, if the input was rejected).
+    model_used is "real" or "custom" (a visitor's own "Try Your Own Data"
+    model), shown in the Logs page so the two are never confused.
     """
     if not DATABASE_URL:
         return
@@ -103,8 +112,8 @@ def log_prediction(raw_applicant, result):
                     INSERT INTO prediction_log (
                         ts, person_income, person_emp_exp, loan_amnt, loan_int_rate,
                         loan_percent_income, credit_score, previous_loan_defaults_on_file,
-                        valid, approved, confidence, errors
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        valid, approved, confidence, errors, model_used
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         datetime.now(timezone.utc),
@@ -119,6 +128,7 @@ def log_prediction(raw_applicant, result):
                         result.get("approved"),
                         result.get("confidence"),
                         "; ".join(result["errors"]) if result.get("errors") else None,
+                        model_used,
                     ),
                 )
             conn.commit()
@@ -126,20 +136,23 @@ def log_prediction(raw_applicant, result):
         logger.exception("Failed to write to the persistent prediction log")
 
 
-def get_recent_predictions(limit=300):
+def _query_predictions(limit=None):
+    """Shared by get_recent_predictions() (limit=300) and get_all_predictions() (limit=None, for exports)."""
     if not DATABASE_URL:
         return []
+    sql = """
+        SELECT ts, person_income, person_emp_exp, loan_amnt, loan_int_rate,
+               loan_percent_income, credit_score, previous_loan_defaults_on_file,
+               valid, approved, confidence, errors, model_used
+        FROM prediction_log ORDER BY id DESC
+    """
+    params = ()
+    if limit is not None:
+        sql += " LIMIT %s"
+        params = (limit,)
     with psycopg2.connect(DATABASE_URL) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT ts, person_income, person_emp_exp, loan_amnt, loan_int_rate,
-                       loan_percent_income, credit_score, previous_loan_defaults_on_file,
-                       valid, approved, confidence, errors
-                FROM prediction_log ORDER BY id DESC LIMIT %s
-                """,
-                (limit,),
-            )
+            cur.execute(sql, params)
             rows = cur.fetchall()
     return [
         {
@@ -155,21 +168,33 @@ def get_recent_predictions(limit=300):
             "approved": row["approved"],
             "confidence": round(row["confidence"], 1) if row["confidence"] is not None else None,
             "errors": row["errors"],
+            "model_used": row["model_used"],
         }
         for row in rows
     ]
 
 
-def get_recent(limit=300):
+def get_recent_predictions(limit=300):
+    return _query_predictions(limit=limit)
+
+
+def get_all_predictions():
+    """Every prediction ever logged, oldest last - for the Logs page's "download all" export."""
+    return _query_predictions(limit=None)
+
+
+def _query_requests(limit=None):
+    """Shared by get_recent() (limit=300) and get_all() (limit=None, for exports)."""
     if not DATABASE_URL:
         return []
+    sql = "SELECT ts, method, path, status_code, duration_ms, error_message FROM request_log ORDER BY id DESC"
+    params = ()
+    if limit is not None:
+        sql += " LIMIT %s"
+        params = (limit,)
     with psycopg2.connect(DATABASE_URL) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                "SELECT ts, method, path, status_code, duration_ms, error_message "
-                "FROM request_log ORDER BY id DESC LIMIT %s",
-                (limit,),
-            )
+            cur.execute(sql, params)
             rows = cur.fetchall()
     return [
         {
@@ -182,3 +207,12 @@ def get_recent(limit=300):
         }
         for row in rows
     ]
+
+
+def get_recent(limit=300):
+    return _query_requests(limit=limit)
+
+
+def get_all():
+    """Every request/error ever logged, oldest last - for the Logs page's "download all" export."""
+    return _query_requests(limit=None)

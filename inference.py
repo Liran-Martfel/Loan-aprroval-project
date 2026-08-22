@@ -16,10 +16,11 @@ import shap
 
 CATEGORICAL_MAPS = {'previous_loan_defaults_on_file': {'No': 0, 'Yes': 1}}
 
-# loan_amnt's real ceiling should scale with the applicant's income rather
-# than sitting at a fixed number - the training data's own $35,000 cap says
-# nothing about what a high earner could reasonably ask for.
-LOAN_TO_INCOME_CAP = 10
+# loan_amnt's real ceiling shouldn't sit at the training data's own $35,000
+# cap - that says nothing about what an applicant could reasonably ask for.
+# A flat, generous ceiling instead of scaling with income, so a lower-income
+# applicant testing a large loan isn't blocked before the model even runs.
+MAX_LOAN_AMOUNT = 10_000_000
 
 
 def load_artifacts(pkl_path='model_artifacts/Full project.pkl', report_path='model_artifacts/model_report.json',
@@ -49,14 +50,12 @@ def validate_application(raw_applicant, report):
             # UI rather than blocked here.
             low, high = 0, float('inf')
         elif feature == 'loan_amnt':
-            income = raw_applicant.get('person_income')
-            if isinstance(income, (int, float)) and income > 0:
-                high = income * LOAN_TO_INCOME_CAP
+            high = MAX_LOAN_AMOUNT
         elif feature == 'loan_percent_income':
-            # Mathematically loan_amnt / person_income, so its ceiling must
-            # match loan_amnt's - otherwise this check silently re-blocks
-            # exactly what the loan_amnt cap above was just relaxed to allow.
-            high = LOAN_TO_INCOME_CAP
+            # Mathematically loan_amnt / person_income - now that neither of
+            # those two is capped relative to the other, this ratio isn't
+            # either. Only guard against a nonsensical (negative) value.
+            low, high = 0, float('inf')
         value = raw_applicant.get(feature)
         if value is None:
             errors.append(f"Missing value for '{feature}'")

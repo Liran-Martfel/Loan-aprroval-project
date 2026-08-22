@@ -84,6 +84,35 @@
     );
   }
 
+  // Shown only while a "Try Your Own Data" session is ready, so a visitor
+  // can see their own upload's basic stats reflected here too, clearly
+  // separated from the real deployed model's section right below it.
+  function renderCustomData() {
+    const card = document.getElementById('custom-data-card');
+    const label = document.getElementById('model-data-original-label');
+    if (!card || !label) return;
+    const meta = window.AppCustomModel && window.AppCustomModel.getMeta();
+    if (!meta) {
+      card.classList.add('hidden');
+      label.classList.add('hidden');
+      return;
+    }
+    card.classList.remove('hidden');
+    label.classList.remove('hidden');
+    const row = document.getElementById('custom-data-stat-cards');
+    row.innerHTML = '';
+    row.appendChild(statCard('stat.accuracy', `${(meta.accuracy * 100).toFixed(1)}%`, true));
+    row.appendChild(statCard('stat.rows', meta.n_rows.toLocaleString(), true));
+    if (meta.confusion_matrix) {
+      const cm = meta.confusion_matrix;
+      renderTable(
+        document.getElementById('custom-data-confusion-table'),
+        ['', 'Predicted: No', 'Predicted: Yes'],
+        [['Actual: No', cm[0][0], cm[0][1]], ['Actual: Yes', cm[1][0], cm[1][1]]]
+      );
+    }
+  }
+
   function renderAll() {
     const info = window.AppState.modelInfo;
     if (!info) return;
@@ -93,6 +122,7 @@
     renderConfusion(info);
     renderReport(info);
     renderMargins(info);
+    renderCustomData();
   }
 
   document.getElementById('advanced-toggle').addEventListener('click', () => {
@@ -101,4 +131,6 @@
 
   document.addEventListener('app:model-info-loaded', renderAll);
   document.addEventListener('app:language-changed', renderAll);
+  document.addEventListener('app:custom-model-ready', renderCustomData);
+  document.addEventListener('app:custom-model-cleared', renderCustomData);
 })();

@@ -212,6 +212,17 @@ html[dir="rtl"] body { font-family: 'Assistant', 'Poppins', sans-serif; }
 .glass-card h3 { margin: 18px 0 8px; font-size: 0.95rem; color: var(--text-muted); }
 .subtitle { color: var(--text-muted); margin: 0 0 20px; font-size: 0.9rem; }
 
+/* Shown only when a "Try Your Own Data" session is active, to separate its
+   own stats card from the real deployed model's section right below it. */
+.section-original-label {
+  margin: 4px 0 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 /* ---------- Look From Within ---------- */
 .look-within-viz {
   display: flex;

@@ -16,6 +16,7 @@ import threading
 import time
 
 import pandas as pd
+import shap
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
@@ -123,7 +124,11 @@ def train_from_dataframe(df):
     y_pred = pipeline.predict(x_test)
     accuracy = float(accuracy_score(y_test, y_pred))
     cm = confusion_matrix(y_test, y_pred, labels=[0, 1]).tolist()
-    return pipeline, accuracy, cm
+    # Kept so a SHAP "why" explanation can be computed against this visitor's
+    # own model later - explaining it with the real model's background would
+    # measure feature impact against the wrong distribution.
+    background = shap.sample(x_train, min(100, len(x_train)), random_state=42)
+    return pipeline, accuracy, cm, background
 
 
 def _train_worker(token, df):
@@ -135,7 +140,7 @@ def _train_worker(token, df):
     proxy timeout.
     """
     try:
-        pipeline, accuracy, cm = train_from_dataframe(df)
+        pipeline, accuracy, cm, background = train_from_dataframe(df)
     except Exception as exc:
         with _lock:
             session = _sessions.get(token)
@@ -149,6 +154,7 @@ def _train_worker(token, df):
             session['pipeline'] = pipeline
             session['accuracy'] = accuracy
             session['confusion_matrix'] = cm
+            session['background'] = background
             session['status'] = 'ready'
 
 
@@ -173,6 +179,7 @@ def create_session(raw_bytes):
             'last_used_at': now,
             'accuracy': None,
             'confusion_matrix': None,
+            'background': None,
             'errors': [],
             'n_rows': len(df),
         }
@@ -213,3 +220,19 @@ def get_pipeline(token):
             return None
         session['last_used_at'] = time.time()
         return session['pipeline']
+
+
+def get_background(token):
+    """
+    Returns the session's SHAP background sample (for explaining its own
+    pipeline's predictions), or None if unknown/expired/still training.
+    Does not refresh the inactivity timer itself - callers pair this with
+    get_pipeline(), which already does.
+    """
+    if not token:
+        return None
+    with _lock:
+        session = _sessions.get(token)
+        if session is None or session['status'] != 'ready':
+            return None
+        return session['background']

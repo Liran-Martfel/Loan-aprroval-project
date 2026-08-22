@@ -33,12 +33,17 @@
     return loanAmnt / income;
   }
 
+  // loan_percent_income is mathematically just loan_amnt / person_income -
+  // now that neither of those two is capped relative to the other (see
+  // inference.py), this ratio isn't blocked either; only a non-blocking
+  // heads-up past the trained range, matching person_income's treatment.
   function updateRatioDisplay() {
     const ratio = computeRatio();
     const display = document.getElementById('ratio-display');
     const fieldDiv = document.querySelector('.field[data-field="loan_percent_income"]');
     if (!display || !fieldDiv) return;
 
+    fieldDiv.classList.remove('invalid');
     if (ratio === null) {
       display.textContent = '--';
       return;
@@ -47,31 +52,18 @@
 
     const range = getRange('loan_percent_income');
     const hint = fieldDiv.querySelector('.field-hint');
-    if (range) {
-      const low = range[0];
-      // Must match inference.py: ceiling is LOAN_TO_INCOME_CAP (loan_amnt's
-      // own cap), not the static training-data max, since this ratio is
-      // mathematically just loan_amnt / person_income.
-      const high = LOAN_TO_INCOME_CAP;
-      const inRange = ratio >= low && ratio <= high;
-      fieldDiv.classList.toggle('invalid', !inRange);
-      if (hint) {
-        hint.innerHTML = inRange
-          ? AppI18n.t('field.loan_percent_income_hint')
-          : `${AppI18n.t('field.loan_percent_income_hint')} <span class="ltr-num">(${(low * 100).toFixed(0)}% - ${(high * 100).toFixed(0)}%)</span>`;
-      }
+    if (range && hint) {
+      const [low, high] = range;
+      hint.innerHTML = (ratio < low || ratio > high)
+        ? `${AppI18n.t('field.loan_percent_income_hint')} <span class="ltr-num">(${(low * 100).toFixed(0)}% - ${(high * 100).toFixed(0)}%)</span>`
+        : AppI18n.t('field.loan_percent_income_hint');
     }
   }
 
-  // loan_amnt has no fixed ceiling - it scales with whatever income is
-  // currently entered (up to LOAN_TO_INCOME_CAP x income), matching the
-  // same rule inference.py applies server-side in validate_application().
-  const LOAN_TO_INCOME_CAP = 10;
-
-  function loanAmntDynamicMax() {
-    const income = Number(numberInput('person_income')?.value || 0);
-    return income > 0 ? income * LOAN_TO_INCOME_CAP : null;
-  }
+  // loan_amnt has a flat, generous ceiling (must match inference.py's
+  // MAX_LOAN_AMOUNT) rather than one scaled to income - a lower-income
+  // applicant testing a large loan isn't blocked before the model even runs.
+  const MAX_LOAN_AMOUNT = 10_000_000;
 
   function updateLoanAmntBounds() {
     const fieldDiv = document.querySelector('.field[data-field="loan_amnt"]');
@@ -80,9 +72,8 @@
     if (!fieldDiv || !input) return;
 
     const range = getRange('loan_amnt');
-    const dynamicMax = loanAmntDynamicMax();
     const low = range ? range[0] : 0;
-    const high = dynamicMax !== null ? dynamicMax : (range ? range[1] : Infinity);
+    const high = MAX_LOAN_AMOUNT;
     const value = Number(input.value);
     const inRange = value >= low && value <= high;
 
@@ -176,9 +167,6 @@
     updateRatioDisplay();
     updateLoanAmntBounds();
     updateIncomeHint();
-    if (document.querySelector('.field[data-field="loan_percent_income"]')?.classList.contains('invalid')) {
-      allValid = false;
-    }
     if (document.querySelector('.field[data-field="loan_amnt"]')?.classList.contains('invalid')) {
       allValid = false;
     }
@@ -253,10 +241,7 @@
     const usingCustom = result.model === 'custom';
     confidenceEl.innerHTML = `${AppI18n.t('result.confidence')}: <span class="ltr-num">${result.confidence.toFixed(1)}%</span>`
       + (usingCustom ? ` <span class="custom-model-badge">${AppI18n.t('custom.resultBadge')}</span>` : '');
-    // /api/explain only ever explains against the real deployed model's SHAP
-    // background - showing "Why?" for a custom-model prediction would be
-    // explaining the wrong model, so it's hidden instead of being wrong.
-    whyToggle.classList.toggle('hidden', usingCustom);
+    whyToggle.classList.remove('hidden');
   }
 
   function renderResult(result) {
@@ -296,9 +281,13 @@
     contributionsEl.classList.remove('hidden');
     contributionsEl.innerHTML = `<li><span class="spinner"></span>${AppI18n.t('result.explaining')}</li>`;
     try {
+      const explainHeaders = { 'Content-Type': 'application/json' };
+      if (window.AppCustomModel && window.AppCustomModel.isActive()) {
+        explainHeaders['X-Session-Token'] = window.AppCustomModel.getToken();
+      }
       const res = await fetch('/api/explain', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: explainHeaders,
         body: JSON.stringify(lastPayload),
       });
       const data = await res.json();
