@@ -230,10 +230,15 @@ def download_model_file():
 @app.post("/api/custom-model/upload")
 async def upload_custom_model(request: Request, file: UploadFile = File(...)):
     """
-    "Try Your Own Data": trains a private model on the visitor's own CSV
-    upload for their session only - see custom_model.py for the validation
-    rules, size/row limits, and privacy guarantees (nothing is written to
-    disk, nothing touches the real deployed model).
+    "Try Your Own Data": kicks off training a private model on the
+    visitor's own CSV upload for their session only, then returns
+    immediately with status "pending" - training itself runs on a
+    background thread (see custom_model.create_session) so a large file
+    doesn't hold this request open long enough to hit Render's proxy
+    timeout. The frontend polls /api/custom-model/status/{token} until
+    it reports "ready". See custom_model.py for validation rules,
+    size/row limits, and privacy guarantees (nothing is written to disk,
+    nothing touches the real deployed model).
     """
     # Reject an oversized upload by its declared Content-Length before ever
     # reading it - otherwise a huge file gets fully buffered into memory/disk
@@ -252,6 +257,25 @@ async def upload_custom_model(request: Request, file: UploadFile = File(...)):
         return JSONResponse(status_code=400, content={"valid": False, "errors": errors})
     result["valid"] = True
     return result
+
+
+@app.get("/api/custom-model/status/{token}")
+def custom_model_status(token: str):
+    """
+    Polled by the frontend after an upload while the private model trains
+    in the background - reports "pending", "ready" (with accuracy/
+    confusion_matrix), or "error" (with a message).
+    """
+    status = custom_model.get_status(token)
+    if status is None:
+        return JSONResponse(
+            status_code=404,
+            content={"valid": False, "errors": ["Unknown or expired session."]},
+        )
+    if status["status"] == "error":
+        return JSONResponse(status_code=400, content={"valid": False, "errors": status["errors"]})
+    status["valid"] = True
+    return status
 
 
 @app.post("/api/predict")

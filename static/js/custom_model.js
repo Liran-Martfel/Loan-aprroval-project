@@ -77,6 +77,29 @@
     }
   }
 
+  const POLL_INTERVAL_MS = 1500;
+  const MAX_POLLS = 80; // ~2 minutes - generous headroom above what training actually takes
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // Training runs server-side on a background thread (see custom_model.py)
+  // so the upload response comes back with status "pending" right away;
+  // this polls until the server reports "ready" or "error".
+  async function pollUntilReady(token) {
+    for (let i = 0; i < MAX_POLLS; i++) {
+      await sleep(POLL_INTERVAL_MS);
+      const res = await fetch(`/api/custom-model/status/${token}`);
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        throw new Error((data.errors || [AppI18n.t('custom.uploadFailed')]).join(' '));
+      }
+      if (data.status === 'ready') return data;
+    }
+    throw new Error(AppI18n.t('custom.trainingTimeout'));
+  }
+
   async function upload() {
     const file = fileInput.files[0];
     errorEl.textContent = '';
@@ -96,14 +119,15 @@
         errorEl.textContent = (data.errors || [AppI18n.t('custom.uploadFailed')]).join(' ');
         return;
       }
+      const finalData = await pollUntilReady(data.token);
       sessionStorage.setItem(TOKEN_KEY, data.token);
-      sessionStorage.setItem(META_KEY, JSON.stringify({ accuracy: data.accuracy, n_rows: data.n_rows }));
+      sessionStorage.setItem(META_KEY, JSON.stringify({ accuracy: finalData.accuracy, n_rows: finalData.n_rows }));
       sessionStorage.setItem(TOGGLE_KEY, '1');
-      showResult(data);
+      showResult(finalData);
       useToggle.checked = true;
     } catch (err) {
       console.error(err);
-      errorEl.textContent = AppI18n.t('custom.uploadFailed');
+      errorEl.textContent = err.message || AppI18n.t('custom.uploadFailed');
     } finally {
       uploadBtn.disabled = false;
       uploadBtn.textContent = originalLabel;

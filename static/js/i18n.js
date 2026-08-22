@@ -116,9 +116,10 @@ const TRANSLATIONS = {
 
     'custom.title': 'Try Your Own Data',
     'custom.subtitle': "Upload a CSV shaped like the real training data and get a private model trained just for you - nothing is saved, and it never touches the real deployed model.",
-    'custom.columnsHint': 'Required columns: person_income, person_emp_exp, loan_amnt, loan_int_rate, loan_percent_income, credit_score, previous_loan_defaults_on_file, loan_status. Must be between 50 and 2,800 rows.',
+    'custom.columnsHint': 'Required columns: person_income, person_emp_exp, loan_amnt, loan_int_rate, loan_percent_income, credit_score, previous_loan_defaults_on_file, loan_status. Must be between 50 and 20,000 rows.',
     'custom.uploadButton': 'Upload & Train',
     'custom.uploading': 'Training...',
+    'custom.trainingTimeout': 'Training is taking longer than expected - please try again.',
     'custom.noFile': 'Choose a CSV file first.',
     'custom.uploadFailed': 'Upload failed - please try again.',
     'custom.yourModel': 'Your Model',
@@ -239,9 +240,10 @@ const TRANSLATIONS = {
 
     'custom.title': 'נסו את הנתונים שלכם',
     'custom.subtitle': 'העלו קובץ CSV בפורמט של נתוני האימון האמיתיים וקבלו מודל פרטי שמאומן במיוחד בשבילכם - שום דבר לא נשמר, וזה לא נוגע במודל האמיתי שפרוס באתר.',
-    'custom.columnsHint': 'עמודות נדרשות: person_income, person_emp_exp, loan_amnt, loan_int_rate, loan_percent_income, credit_score, previous_loan_defaults_on_file, loan_status. חייב להכיל בין 50 ל-2,800 שורות.',
+    'custom.columnsHint': 'עמודות נדרשות: person_income, person_emp_exp, loan_amnt, loan_int_rate, loan_percent_income, credit_score, previous_loan_defaults_on_file, loan_status. חייב להכיל בין 50 ל-20,000 שורות.',
     'custom.uploadButton': 'העלאה ואימון',
     'custom.uploading': 'מאמן...',
+    'custom.trainingTimeout': 'האימון אורך יותר מהצפוי - נסו שוב.',
     'custom.noFile': 'יש לבחור קובץ CSV קודם.',
     'custom.uploadFailed': 'ההעלאה נכשלה - נסו שוב.',
     'custom.yourModel': 'המודל שלכם',

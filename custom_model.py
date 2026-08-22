@@ -4,12 +4,15 @@ Private, per-visitor "Try Your Own Data" models.
 A visitor can upload a CSV shaped like the real training data and get a
 model trained just for their own browser session - it never touches the
 real deployed model, is never written to disk, and is automatically
-forgotten after a period of inactivity. The session store lives entirely
-in this process's memory (fine for a single-worker deployment; lost on
-restart by design - these were never meant to be permanent).
+forgotten after a period of inactivity. Training runs on a background
+thread so large uploads don't hold the HTTP request open; the frontend
+polls get_status() until it reports 'ready'. The session store lives
+entirely in this process's memory (fine for a single-worker deployment;
+lost on restart by design - these were never meant to be permanent).
 """
 import io
 import secrets
+import threading
 import time
 
 import pandas as pd
@@ -30,26 +33,28 @@ LABEL_COLUMN = 'loan_status'
 REQUIRED_COLUMNS = REQUIRED_FEATURES + [LABEL_COLUMN]
 
 MIN_ROWS = 50
-MAX_ROWS = 2_800  # keeps the CalibratedClassifierCV(SVC(...)) fit well under Render's proxy timeout
+MAX_ROWS = 20_000  # training runs in a background thread after the upload response is sent (see create_session), so this is no longer bounded by Render's proxy timeout
 MIN_ROWS_PER_CLASS = 10  # below this, the train/test split and calibration folds become unstable
 MAX_FILE_BYTES = 5 * 1024 * 1024
 SESSION_TTL_SECONDS = 2 * 60 * 60
 MAX_CONCURRENT_SESSIONS = 20
 SVC_C = 10  # matches the real deployed model's own chosen C - no per-upload search, so this stays fast
 
-_sessions = {}  # token -> {pipeline, created_at, last_used_at, accuracy, confusion_matrix, n_rows}
+_sessions = {}  # token -> {pipeline, status, created_at, last_used_at, accuracy, confusion_matrix, n_rows, errors}
+_lock = threading.Lock()  # guards _sessions across the request thread and background training threads
 
 
 def _evict_stale():
     now = time.time()
-    expired = [tok for tok, s in _sessions.items() if now - s['last_used_at'] > SESSION_TTL_SECONDS]
-    for tok in expired:
-        del _sessions[tok]
-    # Safety valve independent of the TTL - if many visitors upload at once,
-    # drop the least-recently-used session rather than growing unbounded.
-    while len(_sessions) >= MAX_CONCURRENT_SESSIONS:
-        oldest = min(_sessions, key=lambda t: _sessions[t]['last_used_at'])
-        del _sessions[oldest]
+    with _lock:
+        expired = [tok for tok, s in _sessions.items() if now - s['last_used_at'] > SESSION_TTL_SECONDS]
+        for tok in expired:
+            del _sessions[tok]
+        # Safety valve independent of the TTL - if many visitors upload at once,
+        # drop the least-recently-used session rather than growing unbounded.
+        while len(_sessions) >= MAX_CONCURRENT_SESSIONS:
+            oldest = min(_sessions, key=lambda t: _sessions[t]['last_used_at'])
+            del _sessions[oldest]
 
 
 def validate_csv(raw_bytes):
@@ -121,38 +126,90 @@ def train_from_dataframe(df):
     return pipeline, accuracy, cm
 
 
+def _train_worker(token, df):
+    """
+    Runs the (slow, CPU-bound) SVM fit on a background thread, off the
+    request that uploaded the file. This is what lets create_session return
+    right away instead of blocking until training finishes - a large
+    upload's HTTP request no longer sits open long enough to hit Render's
+    proxy timeout.
+    """
+    try:
+        pipeline, accuracy, cm = train_from_dataframe(df)
+    except Exception as exc:
+        with _lock:
+            session = _sessions.get(token)
+            if session is not None:  # may have been evicted while training ran
+                session['status'] = 'error'
+                session['errors'] = [f"Training failed: {exc}"]
+        return
+    with _lock:
+        session = _sessions.get(token)
+        if session is not None:
+            session['pipeline'] = pipeline
+            session['accuracy'] = accuracy
+            session['confusion_matrix'] = cm
+            session['status'] = 'ready'
+
+
 def create_session(raw_bytes):
-    """Validates and trains a new private session model. Returns (result_dict, errors)."""
+    """
+    Validates the upload and starts training in the background. Returns
+    (result_dict, errors) - result_dict reports status 'pending' right
+    away; poll get_status(token) until it reports 'ready' or 'error'.
+    """
     df, errors = validate_csv(raw_bytes)
     if errors:
         return None, errors
 
-    try:
-        pipeline, accuracy, cm = train_from_dataframe(df)
-    except Exception as exc:
-        return None, [f"Training failed: {exc}"]
-
     _evict_stale()
     token = secrets.token_urlsafe(24)
     now = time.time()
-    _sessions[token] = {
-        'pipeline': pipeline,
-        'created_at': now,
-        'last_used_at': now,
-        'accuracy': accuracy,
-        'confusion_matrix': cm,
-        'n_rows': len(df),
-    }
-    return {'token': token, 'accuracy': accuracy, 'confusion_matrix': cm, 'n_rows': len(df)}, []
+    with _lock:
+        _sessions[token] = {
+            'pipeline': None,
+            'status': 'pending',
+            'created_at': now,
+            'last_used_at': now,
+            'accuracy': None,
+            'confusion_matrix': None,
+            'errors': [],
+            'n_rows': len(df),
+        }
+    threading.Thread(target=_train_worker, args=(token, df), daemon=True).start()
+    return {'token': token, 'status': 'pending', 'n_rows': len(df)}, []
 
 
-def get_pipeline(token):
-    """Returns the session's pipeline and refreshes its inactivity timer, or None if unknown/expired."""
+def get_status(token):
+    """Returns the session's current training status dict, or None if unknown/expired."""
     if not token:
         return None
     _evict_stale()
-    session = _sessions.get(token)
-    if session is None:
+    with _lock:
+        session = _sessions.get(token)
+        if session is None:
+            return None
+        session['last_used_at'] = time.time()
+        return {
+            'status': session['status'],
+            'accuracy': session['accuracy'],
+            'confusion_matrix': session['confusion_matrix'],
+            'n_rows': session['n_rows'],
+            'errors': session['errors'],
+        }
+
+
+def get_pipeline(token):
+    """
+    Returns the session's trained pipeline and refreshes its inactivity
+    timer, or None if unknown/expired/still training.
+    """
+    if not token:
         return None
-    session['last_used_at'] = time.time()
-    return session['pipeline']
+    _evict_stale()
+    with _lock:
+        session = _sessions.get(token)
+        if session is None or session['status'] != 'ready':
+            return None
+        session['last_used_at'] = time.time()
+        return session['pipeline']
